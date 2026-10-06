@@ -1,11 +1,5 @@
 # CHAIN Agent Starter
 
-세 팀이 **자기 Agent 기능만 독립적으로 추가하는 공통 시작 코드**입니다.
-오케스트레이션은 `donggunseo/chain-orchestrator-v03`가 담당하며, 이 저장소는 세 개의 plugin 함수를 제공합니다.
-
-참조한 upstream commit: `00e5bf6c96b61a1a104af249b86a08d682106332`.
-이전 mock v0.12용 HTTP 서버/임상 규칙 구현과 별개의 starter입니다.
-
 ## 1. 바로 실행
 
 Python 3.11 이상. 기본 예제와 단위 테스트는 추가 설치 없이 동작합니다.
