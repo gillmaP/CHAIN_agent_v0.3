@@ -1,0 +1,8 @@
+{
+  "outcome_schema": "chain-run-outcome/v0.3",
+  "backend": "local",
+  "status": "COMPLETED",
+  "reason": null,
+  "state": "S3",
+  "done": true
+}

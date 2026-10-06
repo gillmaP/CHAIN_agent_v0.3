@@ -1,0 +1,43 @@
+{
+  "comparison_schema": "chain-semantic-comparison/v0.3",
+  "checks": {
+    "terminal_reached": true,
+    "reference_path_when_comparable": true,
+    "agent_and_source_succeeded": true,
+    "mock_notification_status": true,
+    "audit_hash_chain": true,
+    "fixed_evidence_contracts": true,
+    "screening_after_initial_note": true,
+    "matching_ncct_transition": true,
+    "final_before_hitl2": true,
+    "external_ct_order_actor": true
+  },
+  "checks_passed": true,
+  "reference_comparison_applicable": true,
+  "reference_path_match": true,
+  "expected_path": [
+    "S0",
+    "S1",
+    "S2",
+    "S2_1",
+    "S3"
+  ],
+  "actual_path": [
+    "S0",
+    "S1",
+    "S2",
+    "S2_1",
+    "S3"
+  ],
+  "expected_source_hash": "sha256:93413a1f1d0cc2d8e6ba7deb6aef4d9a61fbdf05b490bb0577480d69cb73ccef",
+  "actual_decisions": {
+    "HITL_1_PROCEED_TO_CT": "PROCEED_TO_CT",
+    "HITL_2_THROMBOLYSIS": "THROMBOLYSIS_YES"
+  },
+  "reference_decisions": {
+    "HITL_1_PROCEED_TO_CT": "PROCEED_TO_CT",
+    "HITL_2_THROMBOLYSIS": "THROMBOLYSIS_YES"
+  },
+  "clinical_outputs_compared": false,
+  "note": "State/trigger/evidence contracts only. Source executions, dose, thresholds, elapsed/window and Agent call counts are not expected clinical answers."
+}
