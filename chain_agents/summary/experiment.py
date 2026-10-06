@@ -14,8 +14,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-MODEL_ID = "Qwen/Qwen3.5-9B"
-MODEL_REVISION = "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+DEFAULT_MODEL = "qwen35_9b"
+MODELS = {
+    "qwen35_9b": {"repo_id": "Qwen/Qwen3.5-9B", "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a", "directory": "Qwen3.5-9B", "license": "Apache-2.0", "parameter_label": "9B"},
+    "qwen25_14b_instruct": {"repo_id": "Qwen/Qwen2.5-14B-Instruct", "revision": "cf98f3b3bbb457ad9e2bb7baf9a0125b6b88caa8", "directory": "Qwen2.5-14B-Instruct", "license": "Apache-2.0", "parameter_label": "14B", "loader": "causal"},
+    "gemma4_12b_it": {"repo_id": "google/gemma-4-12B-it", "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7", "directory": "gemma-4-12B-it", "license": "Apache-2.0", "parameter_label": "12B"},
+    "medgemma15_4b_it": {"repo_id": "google/medgemma-1.5-4b-it", "revision": "91850547d9f0b2fdd21aa7c5f4f3d1a8a52c243b", "directory": "medgemma-1.5-4b-it", "license": "HAI-DEF Terms of Use", "parameter_label": "4B"},
+}
 PROMPT_VERSION = "clinical-summary-zero-shot-v1"
 DATA_DEFAULT = "/data/data2/jhbak/CHAIN_agent_summary_prototype"
 DATA_ROOTS = (Path("/data/data2"), Path("/data/data3"))
@@ -250,10 +255,17 @@ def score_predictions(cases, predictions):
                 gold_times.add((claim["subject"], claim["concept"], claim.get("event_time"), claim["source_document_id"]))
         item = by_case.get(case["case_id"], {})
         result = item.get("parsed")
-        if not item.get("schema_valid") or not isinstance(result, dict):
+        if (
+            not item.get("json_valid")
+            or not isinstance(result, dict)
+            or not isinstance(result.get("claims"), list)
+        ):
             continue
-        summaries += bool(result.get("summary", "").strip())
-        for claim in result.get("claims", []):
+        if item.get("schema_valid"):
+            summaries += bool(result.get("summary", "").strip())
+        for claim in result["claims"]:
+            if not isinstance(claim, dict):
+                continue
             claim_count += 1
             doc = docs.get(claim.get("source_document_id"))
             if doc and isinstance(claim.get("evidence"), str) and _quote_supported(claim["evidence"], doc["text"]):
@@ -282,45 +294,63 @@ def score_predictions(cases, predictions):
             sum(gold_value[k] == predicted_value[k] for k in aligned) / len(aligned) if aligned else None
         ),
         "event_time_exact_rate": len(gold_times & predicted_times) / len(gold_times) if gold_times else None,
+        "claim_score_policy": "Compute set-based metrics over claim signatures from every JSON-valid case; duplicate signatures collapse. Value and evidence are scored separately, and schema validity is reported independently.",
         "claims_scored": claim_count, "expected_claims": len(gold),
         "median_generation_seconds": statistics.median(runtimes) if runtimes else None,
     }
 
 
-def download_model():
+def model_config(model_key):
+    try:
+        return MODELS[model_key]
+    except KeyError as exc:
+        raise ValueError(f"Unknown model {model_key!r}; choose one of {sorted(MODELS)}") from exc
+
+
+def download_model(model_key=DEFAULT_MODEL):
+    spec = model_config(model_key)
     root = experiment_root(create=True)
+    from huggingface_hub import get_token, snapshot_download
+    auth_token = get_token()
     os.environ["HF_HOME"] = str(root / "hf_cache")
     os.environ["HF_HUB_CACHE"] = str(root / "hf_cache" / "hub")
-    from huggingface_hub import snapshot_download
-    model_dir = root / "models" / "Qwen3.5-9B"
+    model_dir = root / "models" / spec["directory"]
     snapshot_download(
-        repo_id=MODEL_ID, revision=MODEL_REVISION,
+        repo_id=spec["repo_id"], revision=spec["revision"], token=auth_token,
         local_dir=str(model_dir), cache_dir=str(root / "hf_cache" / "hub"),
     )
     manifest = {
-        "model_id": MODEL_ID, "revision": MODEL_REVISION, "license": "Apache-2.0",
+        "model_key": model_key, "model_id": spec["repo_id"],
+        "revision": spec["revision"], "license": spec["license"],
         "downloaded_at_utc": datetime.now(timezone.utc).isoformat(),
         "model_directory": str(model_dir), "weights_stored_in_git": False,
     }
-    (root / "model_manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8",
+    (root / "models" / f"{model_key}.manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8",
     )
-    print(f"Downloaded {MODEL_ID} at {MODEL_REVISION} to {model_dir}")
+    print(f"Downloaded {spec['repo_id']} at {spec['revision']} to {model_dir}")
 
 
-class LocalQwen:
-    def __init__(self, model_dir, gpu_index="0", max_new_tokens=1800):
+class LocalModel:
+    def __init__(self, model_key, model_dir, gpu_index="0", max_new_tokens=1800):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_index)
         os.environ["HF_HUB_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
         import torch
-        from transformers import AutoModelForMultimodalLM, AutoProcessor
         if not torch.cuda.is_available():
             raise RuntimeError("CUDA is unavailable; this experiment expects a local GPU.")
+        self.model_key = model_key
+        self.spec = model_config(model_key)
         self.torch, self.model_dir, self.max_new_tokens = torch, model_dir, max_new_tokens
+        if self.spec.get("loader") == "causal":
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            processor_class, model_class = AutoTokenizer, AutoModelForCausalLM
+        else:
+            from transformers import AutoModelForMultimodalLM, AutoProcessor
+            processor_class, model_class = AutoProcessor, AutoModelForMultimodalLM
         started = time.perf_counter()
-        self.processor = AutoProcessor.from_pretrained(str(model_dir), local_files_only=True)
-        self.model = AutoModelForMultimodalLM.from_pretrained(
+        self.processor = processor_class.from_pretrained(str(model_dir), local_files_only=True)
+        self.model = model_class.from_pretrained(
             str(model_dir), local_files_only=True, device_map="auto",
             dtype="auto", low_cpu_mem_usage=True,
         )
@@ -332,10 +362,13 @@ class LocalQwen:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": build_user_prompt(case)},
         ]
-        inputs = self.processor.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=True, return_dict=True,
-            return_tensors="pt", enable_thinking=False,
-        ).to(self.model.device)
+        template_options = {
+            "add_generation_prompt": True, "tokenize": True, "return_dict": True,
+            "return_tensors": "pt",
+        }
+        if self.model_key == "qwen35_9b":
+            template_options["enable_thinking"] = False
+        inputs = self.processor.apply_chat_template(messages, **template_options).to(self.model.device)
         self.torch.cuda.synchronize()
         started = time.perf_counter()
         with self.torch.inference_mode():
@@ -350,7 +383,9 @@ class LocalQwen:
     def metadata(self, gpu_index):
         gpu = self.torch.cuda.get_device_properties(0)
         return {
-            "model_id": MODEL_ID, "model_revision": MODEL_REVISION,
+            "model_key": self.model_key, "model_id": self.spec["repo_id"],
+            "model_revision": self.spec["revision"], "license": self.spec["license"],
+            "parameter_label": self.spec["parameter_label"],
             "model_path": str(self.model_dir), "prompt_version": PROMPT_VERSION,
             "transformers_version": __import__("transformers").__version__,
             "torch_version": self.torch.__version__, "cuda_runtime_version": self.torch.version.cuda,
@@ -360,17 +395,18 @@ class LocalQwen:
         }
 
 
-def run_experiment(gpu_index="0", max_new_tokens=1800, case_limit=None):
+def run_experiment(gpu_index="0", max_new_tokens=1800, case_limit=None, model_key=DEFAULT_MODEL):
+    spec = model_config(model_key)
     root = experiment_root(create=True)
-    model_dir = root / "models" / "Qwen3.5-9B"
+    model_dir = root / "models" / spec["directory"]
     if not (model_dir / "config.json").is_file():
-        raise FileNotFoundError(f"Missing model at {model_dir}; run the download command first.")
+        raise FileNotFoundError(f"Missing model at {model_dir}; run download --model {model_key} first.")
     cases = synthetic_cases()
     if case_limit is not None:
         if case_limit < 1:
             raise ValueError("case_limit must be at least 1")
         cases = cases[:case_limit]
-    model = LocalQwen(model_dir, gpu_index, max_new_tokens)
+    model = LocalModel(model_key, model_dir, gpu_index, max_new_tokens)
     predictions = []
     for case in cases:
         raw, elapsed, tokens = "", None, 0
@@ -396,7 +432,7 @@ def run_experiment(gpu_index="0", max_new_tokens=1800, case_limit=None):
             })
             print(f"{case['case_id']}: generation failed ({type(exc).__name__})")
     now = datetime.now(timezone.utc)
-    run_id = now.strftime("qwen35_9b_%Y%m%dT%H%M%SZ")
+    run_id = now.strftime(f"{model_key}_%Y%m%dT%H%M%SZ")
     run_dir = root / "outputs" / run_id
     run_dir.mkdir(parents=True, exist_ok=False)
     metrics = score_predictions(cases, predictions)

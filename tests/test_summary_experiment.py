@@ -2,6 +2,7 @@ import copy
 import unittest
 
 from chain_agents.summary.experiment import (
+    MODELS,
     parse_and_validate,
     score_predictions,
     synthetic_cases,
@@ -13,6 +14,13 @@ class SummaryExperimentTests(unittest.TestCase):
     def setUp(self):
         self.case = synthetic_cases()[0]
         self.documents = self.case["documents"]
+
+    def test_model_candidates_have_pinned_revisions(self):
+        self.assertEqual(set(MODELS), {"qwen35_9b", "qwen25_14b_instruct", "gemma4_12b_it", "medgemma15_4b_it"})
+        for model in MODELS.values():
+            self.assertEqual(len(model["revision"]), 40)
+            self.assertTrue(model["repo_id"])
+            self.assertTrue(model["license"])
 
     def test_valid_schema_and_verbatim_quotes(self):
         result = {"summary": "환자는 왼쪽 팔 힘 저하를 호소했고 LKW는 12:55였습니다.",
