@@ -1,0 +1,52 @@
+{
+  "episode_id": "EP-HYG-261006-058",
+  "encounter_id": "E261006058",
+  "patient_id": "PT-HYG-edd5a27af1",
+  "trigger_event_id": "EVT-HYG-261006-004874",
+  "input_references": [
+    "document:DOC-2610060412@1",
+    "document:DOC-2610060403@2",
+    "encounter:E261006058",
+    "observation:vital_signs",
+    "observation:poct_glucose",
+    "condition:problem_list"
+  ],
+  "documents": [
+    {
+      "document_id": "DOC-2610060412",
+      "version": 1,
+      "document_type": "ED_INITIAL_NOTE",
+      "text_hash": "sha256:7b6be56322025e48b6c66adb1e48f852639672f65fbb6aba96af0d21157dcbf8"
+    },
+    {
+      "document_id": "DOC-2610060403",
+      "version": 2,
+      "document_type": "ED_TRIAGE_NOTE",
+      "text_hash": "sha256:79b6488ed2e9ba22fca609417c2fdc3221211598f938ff03e17437a6a4aefbef"
+    }
+  ],
+  "structured_context": {
+    "age": 68,
+    "sex": "F",
+    "arrival_time": "2026-10-06T15:12:41+09:00",
+    "arrival_mode": "EMS_119",
+    "triage_level": "KTAS-2",
+    "vital_signs": {
+      "sbp": 172,
+      "dbp": 94,
+      "hr": 88,
+      "rr": 18,
+      "bt": 36.6,
+      "spo2": 97,
+      "measured_time": "2026-10-06T15:14:05+09:00"
+    },
+    "poct_glucose_mg_dl": 158,
+    "problem_list": [
+      "I10",
+      "E11.9",
+      "E78.5"
+    ],
+    "seizure_history": "NONE_DOCUMENTED",
+    "preexisting_hemiparesis": "NONE_DOCUMENTED"
+  }
+}
