@@ -447,14 +447,9 @@ python -m unittest discover -s tests -v
 
 | 과제 | 현재 상태 | 다음 작업 |
 |---|---|---|
-| Agent 입력·반환 계약 정합 | 세 Agent는 같은 진입 함수를 쓰지만 요청 필드와 결과 형식은 다릅니다. 실제 Orchestrator 요청 validator와 각 Agent 입력 사이의 필드 매핑을 함께 검증하지는 않았습니다. | Agent별 필수·선택 입력과 반환 결과를 Orchestrator 요청 형식에 맞춰 대조하고, 필요한 Agent 측 검증·예제를 정렬합니다. |
-| 반환 메타데이터 의미 정합 | Summary는 최상위 `schema_version`, tPA는 `assessment.schema`, Screening은 별도 결과 schema ID를 두지 않습니다. `mock_only`도 Screening은 backend, Summary는 자료 조회기, tPA는 고정값을 기준으로 반환합니다. | 세 도메인의 결과 본문은 유지하면서, 공통 소비자가 필요한 버전·실행 출처 메타데이터가 무엇인지와 각 필드의 의미를 정리합니다. |
-| 공통 실행 오류 분류 | 일부 구분만 있습니다. Summary 자료 조회는 `InputResolutionError`, Screening의 잘못된 LLM 출력은 `ScreeningResponseError`를 사용하지만, 나머지는 대체로 `ValueError`, `FileNotFoundError`, `RuntimeError` 또는 원래 예외로 전달됩니다. 공통 `error_code`, 단계, 재시도 가능 여부를 담은 오류 형식은 없습니다. | 요청·Snapshot 검증, 자료 조회·자료 검증, 모델 준비·추론, 모델 출력 검증, 규칙 입력·계산, 내부 오류를 구분하는 Agent 오류 계약을 정합니다. 임상 결과인 `PENDING`·`REVIEW_REQUIRED`와 실행 실패는 서로 다른 종류로 유지합니다. |
-| Screening의 검토 필요 결과 | 선별 규칙이 `REVIEW_REQUIRED`를 판단하면 현재 `ScreeningLLMBackend`가 이를 `ValueError`로 올립니다. 따라서 호출자는 임상적 검토 필요와 기술 실행 오류를 안정적으로 구분할 수 없습니다. | `REVIEW_REQUIRED`를 기술 예외가 아닌 결과 상태로 반환할지 정하고, 실행 오류와 분리합니다. |
-| Summary 결과 갱신 | 현재 Summary는 요청 자료와 질문으로 완성된 결과를 새로 생성해 반환합니다. 이전 Summary를 받아 새 자료와 병합하거나 갱신하는 동작은 없습니다. | 갱신 조건과 의미를 정한 뒤 필요한 경우 기존 결과와 신규 자료를 바탕으로 전체 재생성 또는 항목 갱신을 구현합니다. 기존 항목 유지·대체, 상충 반영 방식도 정해야 합니다. |
-| 모델 회귀 평가 | 코드 테스트는 입력·출력 검증과 규칙을 다룹니다. 기본 실행의 합성 예제는 제한된 fixture라 다양한 문서에 대한 실제 LLM 추출 성능을 반복 평가하는 회귀 세트는 아닙니다. | 부정·불확실·시간 표현·상충·누락 등 대표 사례와 정답을 고정한 공통 평가 세트를 만들고, 모델 변경 시 같은 조건으로 비교합니다. |
-
-이 절은 Agent 코드와 Agent별 계약의 후속 작업을 정리합니다. 외부 서비스나 Orchestrator의 다른 구성 요소에 속하는 구현 항목은 포함하지 않습니다.
+| Orchestrator 연동 | Agent별 입력과 결과를 Orchestrator와 함께 통합 검증하는 작업이 남아 있습니다. | 실제 호출 흐름에 맞춰 입력 연결과 결과 전달을 확인합니다. |
+| 실행 결과 처리 | 실행 실패와 검토가 필요한 업무 결과를 구분해 전달하는 공통 방식이 정리되어 있지 않습니다. | 호출자가 실행 상태와 업무 결과를 구분할 수 있도록 전달 방식을 정리합니다. |
+| Summary 갱신 | 현재 요청 자료를 바탕으로 Summary를 새로 생성해 반환합니다. 기존 Summary에 새 자료를 반영하는 갱신 기능은 구현되어 있지 않습니다. | 필요한 갱신 동작을 정하고 구현합니다. |
 
 ## 8. 코드 구성
 
