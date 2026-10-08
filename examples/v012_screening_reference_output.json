@@ -1,0 +1,149 @@
+{
+  "agent_id": "stroke-screening-agent",
+  "agent_version": "0.3.0",
+  "execution_id": "EXE-HYG-261006-0141",
+  "episode_id": "EP-HYG-261006-058",
+  "encounter_id": "E261006058",
+  "result": {
+    "screening_result": "POSITIVE",
+    "proposed_state": "S1",
+    "clinical_label": "SUSPECTED_ACUTE_STROKE",
+    "priority": "HIGH"
+  },
+  "confidence": 0.93,
+  "rule_trace": [
+    {
+      "rule": "R1_ACUTE_ONSET",
+      "satisfied": true,
+      "basis": "LKW 13:35 → 발견 14:20, 급성"
+    },
+    {
+      "rule": "R2_FOCAL_NEURO_DEFICIT",
+      "satisfied": true,
+      "basis": "우측 편마비 + 실어증 + 중추성 안면마비"
+    },
+    {
+      "rule": "R3_NO_STRONG_ALTERNATIVE",
+      "satisfied": true,
+      "basis": "저혈당 아님(158), 경련·외상 부인, 경련 병력 없음, 기존 편마비 없음"
+    }
+  ],
+  "text_derived_findings": [
+    {
+      "finding": "acute_onset",
+      "label": "급성 발생(13:35 정상 → 14:20 발견)",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "13:35경 딸과 전화통화 시까지 특이증상 없었다고 함"
+    },
+    {
+      "finding": "acute_onset",
+      "label": "발견 시점",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "14:20경 딸이 집에 방문하였을 때 거실에 앉아 있으면서 말을 제대로 못하고 우측 팔다리를 움직이지 못하는 상태로 발견"
+    },
+    {
+      "finding": "right_hemiparesis",
+      "label": "우측 편마비",
+      "snomed": "278286009",
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Motor: Rt. U/E G2, Rt. L/E G3, Lt. side G5"
+    },
+    {
+      "finding": "aphasia",
+      "label": "실어증",
+      "snomed": "87486003",
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Global aphasia (comprehension 일부 보존), dysarthria"
+    },
+    {
+      "finding": "facial_palsy",
+      "label": "중추성 안면마비",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Rt. facial palsy (central type)"
+    },
+    {
+      "finding": "fast_positive",
+      "label": "FAST 양성(간호 초기평가)",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "FAST: Face(+) Arm(+) Speech(+)"
+    },
+    {
+      "finding": "no_hypoglycemia",
+      "label": "저혈당 배제(POCT 158)",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "BST 158 mg/dL (15:14, POCT)"
+    },
+    {
+      "finding": "no_seizure_trauma",
+      "label": "경련·외상 부인",
+      "snomed": null,
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "두통, 구토, 경련, 외상 부인(보호자 진술)"
+    }
+  ],
+  "clinical_times": {
+    "last_known_well": "2026-10-06T13:35:00+09:00",
+    "symptom_discovery": "2026-10-06T14:20:00+09:00",
+    "ems_arrival": "2026-10-06T14:31:00+09:00",
+    "source_ref": "document:DOC-2610060412@1",
+    "confirmation_status": "UNCONFIRMED_NLP_EXTRACTED"
+  },
+  "missing_information": [
+    "NIHSS not yet documented"
+  ],
+  "evidence": [
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "13:35경 딸과 전화통화 시까지 특이증상 없었다고 함",
+      "finding": "acute_onset"
+    },
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "14:20경 딸이 집에 방문하였을 때 거실에 앉아 있으면서 말을 제대로 못하고 우측 팔다리를 움직이지 못하는 상태로 발견",
+      "finding": "acute_onset"
+    },
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Motor: Rt. U/E G2, Rt. L/E G3, Lt. side G5",
+      "finding": "right_hemiparesis"
+    },
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Global aphasia (comprehension 일부 보존), dysarthria",
+      "finding": "aphasia"
+    },
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Rt. facial palsy (central type)",
+      "finding": "facial_palsy"
+    },
+    {
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "FAST: Face(+) Arm(+) Speech(+)",
+      "finding": "fast_positive"
+    },
+    {
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "BST 158 mg/dL (15:14, POCT)",
+      "finding": "no_hypoglycemia"
+    },
+    {
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "두통, 구토, 경련, 외상 부인(보호자 진술)",
+      "finding": "no_seizure_trauma"
+    }
+  ],
+  "produced_time": "2026-10-06T15:20:04+09:00",
+  "processing_time_ms": 11830,
+  "model_info": {
+    "rule_set": "stroke-screen-rules v0.3",
+    "nlp_model": "chain-ko-clinical-ner v0.2.1 (on-prem)",
+    "llm_tier": "INTERNAL_ON_PREM"
+  },
+  "disclaimer": "S1은 진단명이 아니라 '평가 필요' 상태. 의료진 확인(HITL#1) 전 진료 적용 없음."
+}
