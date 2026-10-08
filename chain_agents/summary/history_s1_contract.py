@@ -77,6 +77,8 @@ def canonical_questions(request_questions):
         raise ValueError('questions must be a non-empty list of question IDs')
     expanded = []
     for question in request_questions:
+        if not isinstance(question, str):
+            raise ValueError('Each question must be a supported string ID')
         if question in REQUEST_ALIASES:
             expanded.extend(REQUEST_ALIASES[question])
         elif question in QUESTION_CATALOG:

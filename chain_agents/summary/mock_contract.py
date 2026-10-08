@@ -43,20 +43,31 @@ class FixtureDataAPI:
         if key not in self.responses: raise ValueError(f'Missing API fixture: {key}')
         return copy.deepcopy(self.responses[key])
 
-def resolve(request, reader):
+def resolve(request, reader, audit=None):
     requested_items(request)
     if reader is None or not callable(getattr(reader,'get',None)):
         raise ValueError('services.summary_data_api.get(path) required')
     resources={}
     for ref in request['input_references']:
-        resource=copy.deepcopy(reader.get(endpoint(ref,request)))
-        if not isinstance(resource,dict): raise ValueError(f'Invalid resource: {ref}')
-        if resource.get('patient_id') != request['patient_id']: raise ValueError(f'Patient binding mismatch: {ref}')
-        if ref.startswith('document:'):
-            docid,version=ref[9:].split('@')
-            if resource.get('document_id')!=docid or resource.get('version')!=int(version): raise ValueError('Document version mismatch')
-            if resource.get('encounter_id')!=request['encounter_id']: raise ValueError('Document encounter mismatch')
-            if resource.get('document_type') not in DOCUMENT_TYPES: raise ValueError('Document outside Summary scope')
-            if resource.get('status') not in ('CURRENT','SUPERSEDED') or not isinstance(resource.get('text'),str): raise ValueError('Invalid/retracted document')
+        from .input_audit import InputResolutionError, now
+        started = now()
+        stage = 'retrieve'
+        try:
+            resource=copy.deepcopy(reader.get(endpoint(ref,request)))
+            stage = 'validate'
+            if not isinstance(resource,dict): raise ValueError(f'Invalid resource: {ref}')
+            if resource.get('patient_id') != request['patient_id']: raise ValueError(f'Patient binding mismatch: {ref}')
+            if ref.startswith('document:'):
+                docid,version=ref[9:].split('@')
+                if resource.get('document_id')!=docid or resource.get('version')!=int(version): raise ValueError('Document version mismatch')
+                if resource.get('encounter_id')!=request['encounter_id']: raise ValueError('Document encounter mismatch')
+                if resource.get('document_type') not in DOCUMENT_TYPES: raise ValueError('Document outside Summary scope')
+                if resource.get('status') not in ('CURRENT','SUPERSEDED') or not isinstance(resource.get('text'),str): raise ValueError('Invalid/retracted document')
+            if audit is not None:
+                audit.record(ref, resource, started)
+        except Exception as exc:
+            if audit is not None:
+                audit.failed(ref, stage)
+            raise InputResolutionError(f'Required source {stage} failed: {ref}') from exc
         resources[ref]=resource
     return resources

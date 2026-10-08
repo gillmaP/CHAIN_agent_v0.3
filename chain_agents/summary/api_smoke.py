@@ -9,6 +9,7 @@ from pathlib import Path
 import threading
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 
 from .api_service import Application,DemoExtractor,make_server
 from .api_adapter import HTTPDataAPI
@@ -64,6 +65,16 @@ def main():
                 assert stored['output']['items']['anticoagulant_use']['confidence'] is None
                 assert len(stored['data_accessed'])==len(request['input_references'])
                 assert extractor.generation_calls==1
+                assert stored['input_audit']['coverage']=='complete'
+                assert set(stored['input_snapshot'])==set(request['input_references'])
+                assert stored['question_plan']['resolved']==body['output']['questions']
+                params={k:request[k] for k in ('patient_id','encounter_id','episode_id')}
+                with urlopen(url+'/summary-results/latest?'+urlencode(params)+'&format=typed',timeout=10) as response:
+                    latest=json.load(response)
+                assert latest['latest_success']['execution_id']==eid
+                assert latest['latest_success']['output']==body['output']
+                record['input_audit']=stored['input_audit']
+                record['latest_lookup_passed']=True
                 if name=='positive_use':
                     actual={x['question']:x for x in body['output']['items']}
                     record['correct_fields']=sum(_semantic_match(x['question'],actual.get(x['question']),x) for x in case['gold_items'])

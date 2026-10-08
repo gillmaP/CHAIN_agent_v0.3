@@ -10,11 +10,13 @@ import unittest
 from unittest.mock import patch
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 
 from .api_service import Application,DemoExtractor,make_server,Store,encode,storage_root
 from .api_adapter import HTTPDataAPI,DataAPIError
 from .history_s1_cases import cases
 from .mock_contract import FixtureDataAPI,endpoint
+from .input_audit import digest
 
 
 class APITests(unittest.TestCase):
@@ -130,6 +132,125 @@ class APITests(unittest.TestCase):
 
     def test_production_storage_guard_rejects_root(self):
         with self.assertRaises(ValueError):storage_root('/tmp/summary-outside-approved-data')
+
+    def latest_url(self, **overrides):
+        params={k:self.request[k] for k in ('patient_id','encounter_id','episode_id')}
+        params.update(overrides)
+        return '/summary-results/latest?'+urlencode(params)
+
+    def test_input_is_persisted_before_inference_and_not_exposed(self):
+        original=self.app.extractor
+        def extract(docs, questions):
+            saved=self.app.store.get('audit')
+            self.assertEqual(saved['input_audit']['coverage'],'complete')
+            self.assertEqual(len(saved['input_snapshot']),len(self.request['input_references']))
+            result=original.extract(docs,questions)
+            next(iter(docs.values()))['text']='mutated extractor copy'
+            return result
+        with patch.object(original,'extract',side_effect=None) as call:
+            # Use a separate instance to avoid recursive mocked extract calls.
+            original=DemoExtractor(self.cases)
+            call.side_effect=extract
+            code,_,_=self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'audit'})
+        self.assertEqual(code,200)
+        data=self.app.store.get('audit');audit=data['input_audit']
+        expected=digest({'patient_id':self.request['patient_id'],'encounter_id':self.request['encounter_id'],
+            'episode_id':self.request['episode_id'],'questions':audit['question_plan']['resolved'],
+            'resources':data['input_snapshot']})
+        self.assertEqual(audit['input_snapshot_hash'],expected)
+        self.assertIn('history_s1_extractor.py',audit['implementation']['files'])
+        for source in audit['sources']:
+            self.assertEqual(source['content_hash'],digest(data['input_snapshot'][source['source_ref']]))
+        _,view,_=self.call('/agent-executions/audit')
+        self.assertNotIn('input_snapshot',view)
+        self.assertEqual(view['input_audit'],audit)
+
+    def test_question_plan_and_invalid_question_types(self):
+        self.request['questions']=[q for q in self.request['questions'] if q!='antiplatelet_use']
+        code,_,_=self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'plan'})
+        self.assertEqual(code,200)
+        plan=self.app.store.get('plan')['question_plan']
+        self.assertEqual(plan['resolved'],self.app.store.get('plan')['typed_output']['questions'])
+        self.assertIn('recent_surgery_or_bleeding',plan['aliases'])
+        self.assertEqual(plan['automatically_included'],['antiplatelet_use'])
+        for question in ('unsupported',{},[],None,17):
+            code,_,_=self.call('/agents/clinical-summary-agent/invoke',dict(self.request,questions=[question]))
+            self.assertEqual(code,400)
+
+    def test_missing_resource_fails_without_model_and_keeps_partial_input(self):
+        responses=copy.deepcopy(self.responses)
+        ref=self.request['input_references'][-1]
+        del responses['GET '+endpoint(ref,self.request)]
+        self.app.reader_factory=lambda:FixtureDataAPI(responses)
+        with patch.object(self.app.extractor,'extract') as extract:
+            code,out,_=self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'missing'})
+            extract.assert_not_called()
+        self.assertEqual(code,422);self.assertEqual(out['error']['code'],'INPUT_RESOLUTION_FAILED')
+        saved=self.app.store.get('missing')
+        self.assertIsNone(saved['typed_output']);self.assertIsNone(saved['generation'])
+        self.assertEqual(saved['input_audit']['coverage'],'incomplete')
+        self.assertEqual(saved['input_audit']['sources'][-1]['stage'],'retrieve')
+        self.assertEqual(len(saved['input_snapshot']),len(self.request['input_references'])-1)
+
+    def test_bad_patient_version_and_structured_shape_never_call_model(self):
+        self.request['input_references'].append('medication:active')
+        self.responses['GET '+endpoint('medication:active',self.request)]={
+            'patient_id':self.request['patient_id'],'medications':[]}
+        document=next(r for r in self.request['input_references'] if r.startswith('document:'))
+        for ref,key,value in ((document,'patient_id','wrong'),(document,'version',999),
+                              ('medication:active','medications',None)):
+            responses=copy.deepcopy(self.responses)
+            responses['GET '+endpoint(ref,self.request)][key]=value
+            self.app.reader_factory=lambda:FixtureDataAPI(responses)
+            with patch.object(self.app.extractor,'extract') as extract:
+                code,out,_=self.call('/agents/clinical-summary-agent/invoke',self.request)
+                extract.assert_not_called()
+            self.assertEqual(code,422);self.assertEqual(out['error']['code'],'INPUT_RESOLUTION_FAILED')
+
+    def test_extraction_failure_keeps_complete_input_and_restart_history(self):
+        with patch.object(self.app.extractor,'extract',side_effect=ValueError('invalid model JSON')):
+            code,out,_=self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'badmodel'})
+        self.assertEqual(code,422);self.assertEqual(out['error']['code'],'EXTRACTION_FAILED')
+        before=self.app.store.get('badmodel')
+        self.assertEqual(before['input_audit']['coverage'],'complete')
+        reopened=Store(self.tmp.name)
+        try:self.assertEqual(reopened.get('badmodel')['input_snapshot'],before['input_snapshot'])
+        finally:reopened.db.close()
+
+    def test_latest_success_survives_newer_failed_attempt_and_filters_ids(self):
+        self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'good'})
+        self.app.reader_factory=lambda:FixtureDataAPI({})
+        self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'failed'})
+        code,view,_=self.call(self.latest_url(format='typed'))
+        self.assertEqual(code,200);self.assertTrue(view['has_newer_attempt'])
+        self.assertEqual(view['latest_execution']['execution_id'],'failed')
+        self.assertEqual(view['latest_success']['execution_id'],'good')
+        self.assertIsInstance(view['latest_success']['output']['items'],list)
+        self.assertNotIn('input_snapshot',view['latest_execution'])
+        for key in ('patient_id','encounter_id','episode_id'):
+            self.assertEqual(self.call(self.latest_url(**{key:'unrelated'}))[0],404)
+        self.assertEqual(self.call('/summary-results/latest')[0],400)
+
+    def test_latest_without_success_is_explicit(self):
+        self.app.reader_factory=lambda:FixtureDataAPI({})
+        self.call('/agents/clinical-summary-agent/invoke',self.request)
+        code,view,_=self.call(self.latest_url())
+        self.assertEqual(code,200);self.assertIsNone(view['latest_success'])
+        self.assertFalse(view['has_newer_attempt'])
+
+    def test_same_id_reuses_input_and_new_id_captures_changed_resource(self):
+        self.request['input_references'].append('medication:active')
+        self.responses['GET '+endpoint('medication:active',self.request)]={
+            'patient_id':self.request['patient_id'],'medications':[]}
+        self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'first'})
+        first=self.app.store.get('first')['input_audit']['input_snapshot_hash']
+        responses=copy.deepcopy(self.responses)
+        responses['GET '+endpoint('medication:active',self.request)]['as_of']='2026-10-08'
+        self.app.reader_factory=lambda:FixtureDataAPI(responses)
+        self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'first'})
+        self.assertEqual(first,self.app.store.get('first')['input_audit']['input_snapshot_hash'])
+        self.call('/agents/clinical-summary-agent/invoke',self.request,{'X-Execution-ID':'second'})
+        self.assertNotEqual(first,self.app.store.get('second')['input_audit']['input_snapshot_hash'])
 
 
 if __name__=='__main__':unittest.main()

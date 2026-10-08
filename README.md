@@ -1,108 +1,66 @@
-# CHAIN Agent Starter
+# CHAIN Agents
 
-## Summary S1 HTTP 통합 (feature/summary)
+Stroke Screening, Clinical Summary, tPA 의사결정지원 Agent의 개발 저장소입니다.
+공통 Python 진입점은 `invoke(request, snapshot, services) -> dict`입니다.
 
-JLK/UI 연결은 [Summary README](chain_agents/summary/README.md)와 [API 통합 가이드](chain_agents/summary/API_INTEGRATION.md)를 보세요.
-POST invoke, 비동기 실행 조회, 결과 저장/조회, Data API client 및 GPU 없는 합성 demo를 제공합니다.
-[실제 모델 API 테스트 기록](chain_agents/summary/API_TEST_RESULTS.md)도 포함합니다. 아래 기존 v0.3 snapshot 계약과 참조형 S1 계약은 구분합니다.
+## Clinical Summary
 
+S1 요청을 받아 약물·과거력·LKW 정보를 추출하고 근거와 함께 반환합니다.
+HTTP 실행, 비동기 상태 조회, SQLite 저장, 최근 성공 결과 조회를 제공합니다.
 
-## 1. 바로 실행
+- **[Summary README](chain_agents/summary/README.md)** — 빠른 시작, 실제 모델 실행, API, Orchestrator·Tool 연결
+- **[입출력 계약](chain_agents/summary/CONTRACT.md)** — 질문, 상태·값, 인용, 시간, 상충 규칙
 
-Python 3.11 이상. 기본 예제와 단위 테스트는 추가 설치 없이 동작합니다.
+```bash
+# 저장소 루트 / Python 3.11+ / GPU 없는 합성 데모
+python -m chain_agents.summary.api_service \
+  --demo --port 8091 --store-root /data/data2/chain-summary/demo
+```
+
+합성 데모는 API 연결 확인용입니다. 실제 모델 실행과 자료 연결은 Summary README를 참고하세요.
+
+## 저장소 구성
+
+| 경로 | 역할 |
+|---|---|
+| `chain_agents/screening/` | Screening starter: 합성 fixture 응답 |
+| `chain_agents/summary/` | S1 임상정보 추출 + 기존 Context 보존 경로 |
+| `chain_agents/tpa/` | tPA starter: 근거 패키지 반환 |
+| `chain_agents/common.py` | 공통 입력 경계 검사 |
+| `examples/` | 세 Agent의 기본 snapshot 호출 예제 |
+| `tests/` | 공통·팀별 회귀 테스트 |
+| `scripts/prepare_integration.py` | 공유 오케스트레이터의 별도 통합 사본 생성 |
+| `docs/` | 기존 v0.3 공통 계약·통합 안내 |
+
+## 기본 예제와 테스트
 
 ```bash
 python -m examples.run all
-python -m examples.run screening
-python -m examples.run summary
-python -m examples.run tpa
 python -m unittest discover -s tests -v
 ```
 
-`examples/` 입력과 Screening 답은 명시적으로 만든 합성 테스트 데이터입니다. 예제의 POSITIVE는 모델 예측이 아닙니다.
+`examples.run summary`는 기존 snapshot/Context 예제입니다.
+S1 자료 조회·LLM·HTTP 예제는 위 Summary README의 명령을 사용합니다.
 
-## 2. 각 팀이 수정할 곳
+## 오케스트레이터 연결
 
-| 팀 | 기능을 넣을 파일 | 팀별 테스트 | 현재 baseline |
-|---|---|---|---|
-| 1: Stroke Screening | `chain_agents/screening/logic.py` | `tests/test_screening.py` | 합성 fixture 응답. backend가 없으면 명시적 실패 |
-| 2: Clinical Summary | `chain_agents/summary/logic.py` | `tests/test_summary.py` | 요청 Fact 보존 + 누락 목록 + 캐시 |
-| 3: tPA Decision Support | `chain_agents/tpa/logic.py` | `tests/test_tpa.py` | 요청 Fact를 evidence_package로 반환 |
-
-`agent.py`는 공통 호출 규격을 유지하는 진입점입니다. 각 폴더에 `extractor.py`, `rules.py`, `prompts/` 등을 필요할 때 추가하세요. 아직 LLM, 임상 판정 규칙, 용량 계산은 없습니다.
-
-| 공통 파일 | 역할 |
-|---|---|
-| `chain_agents/common.py` | 최소한의 입력 경계 검사, hash, 결측 처리 |
-| `examples/support.py` | 로컬 테스트용 cache/fixture service |
-| `scripts/prepare_integration.py` | upstream 별도 사본에 모듈과 Registry/config 연결 |
-| `.github/workflows/tests.yml` | push/PR마다 Python 3.11·3.12 테스트 |
-| `docs/CONTRACT.md` | 입력·출력 및 Summary 제약 |
-| `docs/INTEGRATION.md` | 오케스트레이터 연결과 승인 구분 |
-| `AGENTS.md` | 세 팀 공통 변경 규칙 |
-
-## 3. 모든 Agent는 같은 함수 형태
-
-```python
-def invoke(request, snapshot, services) -> dict:
-    # request: mode, scope, evaluated_at, snapshot ID 등
-    # snapshot["facts"]: 요청 범위의 값·상태·출처·버전·시각
-    # services.cache / services.backend: 실행 환경이 주입
-    return domain_result
-```
-
-함수는 **도메인 결과 dict만 반환**합니다. 공통 SUCCESS/FAILED envelope, 상태전이, HITL, 이벤트, 알림은 upstream Runtime/Orchestrator가 처리합니다. 실패는 `ValueError`로 알립니다. 오류 dict를 정상 반환하면 SUCCESS로 감싸질 수 있습니다.
-
-### 결과의 정확한 key
-
-| Agent | mode | 반환 key |
+| 경로 | 입력 | 도메인 출력 |
 |---|---|---|
-| Screening | `screening` | `screening_result`, `mock_only`, `basis` |
-| Summary | `context` | `structured_context`, `missing_information`, `cache` |
-| tPA | `interim`, `final` | `mode`, `evidence_package`, `assessment`, `mock_only` |
+| Screening `screening` | request + snapshot | `screening_result`, `mock_only`, `basis` |
+| Summary `context` | request + snapshot | `structured_context`, `missing_information`, `cache` |
+| Summary S1 | 자료 참조 + 질문, `snapshot=None` | 질문별 `items`, 미확인 정보 등 |
+| tPA `interim/final` | request + snapshot | `mode`, `evidence_package`, `assessment`, `mock_only` |
 
-새 key를 추가하거나 `mock_only`를 제거하려면 upstream Workflow의 `outputs`, 사용하는 분기와 구현 버전을 함께 변경해야 합니다.
+공유 v0.3의 Summary Context는 원천 `snapshot.facts`를 그대로 보존합니다.
+S1 임상 추출의 출력 계약은 별도이며, mode/Agent 등록과 UI·후속 Agent 연결은 통합팀과 맞춰야 합니다.
+워크플로 상태 전이, HITL, 실행 인가, 이벤트는 오케스트레이터가 담당합니다.
 
-**Summary의 중요 제약:** 현재 upstream 엔진은 `structured_context == snapshot.facts`를 검사합니다. 자유로운 LLM 요약이나 새 임상 Fact를 그 안에 넣을 수 없습니다. 임상 extraction 결과를 어디에 반영할지 오케스트레이션 팀과 별도 출력 계약을 정해야 합니다. 우선 baseline에서는 원본 Fact를 그대로 보존합니다.
+기존 snapshot 통합 절차는 [공통 계약](docs/CONTRACT.md)과 [통합 안내](docs/INTEGRATION.md)에 있습니다.
+이 문서들을 S1 HTTP 계약과 혼용하지 마세요.
 
-## 4. 팀별 개발 순서
+## 개발 규칙
 
-1. 예제 실행으로 request/snapshot/result 형태 확인.
-2. 팀의 `logic.py`에 기능을 추가하고 helper도 같은 팀 폴더에 배치.
-3. 팀 테스트에 새 합성 입력과 기대 결과 추가.
-4. 계약이 유지되는지 전체 테스트 실행 후 PR.
-5. upstream 통합 사본에서 검증하고, 검토된 코드·버전·hash로 배포 등록.
-
-브랜치 예: `feature/screening-extraction`, `feature/summary-extraction`, `feature/tpa-rules`.
-`common.py`, 출력 계약, 통합 스크립트는 세 팀 공동 검토 대상으로 두세요. 모델 선택 전 공통 LLM client를 미리 고정할 필요는 없습니다.
-
-## 5. 오케스트레이터 연결
-
-기본 개발은 Temporal 없이 가능합니다. 전체 연결 검증만 upstream 의존성이 필요합니다.
-원본 checkout을 변경하지 않고 **새 형제 폴더**에 통합 사본을 만듭니다.
-
-```bash
-# parent/
-#   chain-agent-starter/       이 저장소
-#   chain-orchestrator-v03/    공유받은 upstream clone
-
-python -m pip install -r ../chain-orchestrator-v03/requirements.txt
-python scripts/prepare_integration.py \
-  --upstream ../chain-orchestrator-v03 \
-  --output ../chain-integration-demo \
-  --synthetic-demo
-```
-
-새 사본에는 세 plugin, 대응하는 Catalog/Registry/Policy, 새 버전에 맞춘 **합성 fixture 사본**이 생성됩니다. 원본 코드는 유지되며 임상 흐름 YAML은 바꾸지 않습니다. `--synthetic-demo`의 APPROVED는 이 로컬 합성 데모 설정에만 해당합니다. 옵션을 생략하면 Registry는 PENDING인 검토용 초안이고 실행이 차단됩니다. 실제 환경의 승인 상태는 자동 변경하지 않습니다.
-
-통합 검증 명령은 [docs/INTEGRATION.md](docs/INTEGRATION.md)를 보세요.
-
-## 6. 테스트 범위
-
-입력 보존, scope/snapshot binding, mock 출력, false/0/null 구분, conflict/error/retracted 상태, cache 재사용과 snapshot 변경을 검사합니다. upstream과 같은 key 계약을 유지하되, Summary/tPA는 ERROR·RETRACTED·INVALIDATED도 미확보로 취급합니다.
-
-로컬 helper는 upstream의 전체 wire validator를 재구현하지 않습니다. 실제 Runtime은 hash, 시간, dependencies, Registry를 먼저 검증합니다. 이 테스트 통과는 임상 성능이나 운영 배포 승인을 의미하지 않습니다.
-
-## 7. GitHub 협업
-
-이 폴더 자체가 공유 저장소의 루트가 되도록 올리면 됩니다. GitHub Actions와 팀별 테스트가 포함되어 있습니다. 원천 병원 자료·실제 환자 정보·API 키는 커밋하지 마세요. 저장소 소유자/팀 GitHub 계정이 정해지면 팀별 CODEOWNERS를 추가하면 됩니다.
+각 팀은 해당 Agent 폴더와 팀별 테스트를 관리합니다. 공통 계약·출력 변경은 통합 검토 대상입니다.
+작업 규칙은 [AGENTS.md](AGENTS.md)를 따릅니다.
+환자 자료·인증 정보·모델 가중치·실행 결과는 Git에 포함하지 않습니다.
+Summary 실행 자료와 모델은 `/data/data2` 또는 `/data/data3`에 저장합니다.

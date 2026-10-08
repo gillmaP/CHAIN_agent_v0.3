@@ -8,6 +8,7 @@ from .history_s1_contract import (
     finalize_facts, validate_model_payload,
 )
 from .mock_contract import resolve
+from .input_audit import InputAudit, InputResolutionError
 
 
 def _structured_facts(resources, questions):
@@ -93,9 +94,22 @@ def run_history(request, snapshot, services):
         raise ValueError('Reference-based S1 Summary expects snapshot=None')
     questions = canonical_questions(request.get('questions'))
     reader = getattr(services, 'summary_data_api', None)
-    resources = resolve(request, reader)
-    documents = {ref: data for ref, data in resources.items() if ref.startswith('document:')}
     extractor = getattr(services, 'summary_extractor', None)
+    audit = InputAudit(request, extractor)
+    save_input = getattr(services, 'summary_input_observer', None)
+    try:
+        resources = resolve(request, reader, audit=audit)
+        # Validate structured resources before model inference; no partial success.
+        try:
+            structured, missing = _structured_facts(resources, questions)
+        except ValueError as exc:
+            audit.metadata['validation_error'] = 'structured_resource_invalid'
+            raise InputResolutionError('Structured resource validation failed') from exc
+        audit.complete()
+    finally:
+        if save_input is not None:
+            save_input(audit.snapshot())
+    documents = {ref: data for ref, data in resources.items() if ref.startswith('document:')}
     if documents:
         if extractor is None or not callable(getattr(extractor, 'extract', None)):
             raise ValueError('services.summary_extractor.extract is required when narrative documents are supplied')
@@ -103,7 +117,6 @@ def run_history(request, snapshot, services):
     else:
         model_payload = {'facts': [], 'reviewed_documents': []}
     validate_model_payload(model_payload, documents, questions)
-    structured, missing = _structured_facts(resources, questions)
     items = finalize_facts(model_payload, documents, questions, extra_facts=structured, evidence_sources=resources)
     for item in items:
         if item['status'] in ('not_stated', 'explicitly_unknown', 'conflicting', 'not_applicable'):

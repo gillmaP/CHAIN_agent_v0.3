@@ -24,6 +24,7 @@ from .agent import invoke
 from .mock_contract import FixtureDataAPI, requested_items, endpoint
 from .history_s1_contract import canonical_questions
 from .api_adapter import HTTPDataAPI, DataAPIError, mock_output
+from .input_audit import InputResolutionError, question_plan
 
 AGENT = 'clinical-summary-agent'
 VERSION = '0.3.0-prototype'
@@ -83,9 +84,28 @@ class Store:
             data = {'execution_id': eid, 'agent_id': AGENT, 'agent_version': VERSION,
                     'status': 'QUEUED', 'submitted': now(), 'input_hash': digest,
                     'request': request, 'output': None, 'typed_output': None, 'error': None}
+            data['question_plan'] = question_plan(request['questions'])
             self.db.execute('INSERT INTO executions VALUES (?,?,?)', (eid, digest, encode(data)))
             self.db.commit()
             return data, True
+
+    def latest(self, patient_id, encounter_id, episode_id):
+        """Latest means submission order, never an assertion of clinical freshness."""
+        with self.lock:
+            rows = self.db.execute('SELECT body FROM executions ORDER BY rowid DESC')
+            latest, success = None, None
+            for (body,) in rows:
+                data = json.loads(body)
+                request = data['request']
+                if all(request.get(k) == v for k, v in (
+                    ('patient_id', patient_id), ('encounter_id', encounter_id), ('episode_id', episode_id))):
+                    if latest is None:
+                        latest = data
+                    if data['status'] == 'SUCCESS':
+                        success = data
+                        break
+            rows.close()
+            return latest, success
 
     def update(self, eid, only_status=None, **fields):
         with self.lock:
@@ -143,7 +163,10 @@ class Application:
         try:
             request = self.store.get(eid)['request']
             reader = self.reader_factory()
-            result = invoke(request, None, SimpleNamespace(summary_data_api=reader, summary_extractor=self.extractor))
+            def capture_input(snapshot):
+                self.store.update(eid, input_snapshot=snapshot['resources'], input_audit=snapshot['metadata'])
+            result = invoke(request, None, SimpleNamespace(summary_data_api=reader,
+                summary_extractor=self.extractor, summary_input_observer=capture_input))
             completed = now()
             wire = mock_output(result, request, eid, completed, round((time.perf_counter()-started)*1000))
             digest = 'sha256:' + hashlib.sha256(encode(wire).encode()).hexdigest()
@@ -152,12 +175,13 @@ class Application:
                               generation=getattr(self.extractor, 'last_generation', None),
                               data_accessed=getattr(reader, 'accessed', []))
         except Exception as exc:
-            code = 'DATA_API_FAILED' if isinstance(exc, DataAPIError) else 'EXTRACTION_FAILED'
+            code = ('INPUT_RESOLUTION_FAILED' if isinstance(exc, InputResolutionError) else
+                    'DATA_API_FAILED' if isinstance(exc, DataAPIError) else 'EXTRACTION_FAILED')
             # Detailed patient-bearing raw output stays in the local result store.
             self.store.update(eid, only_status='RUNNING', status='FAILED', completed=now(),
                               error={'code': code, 'message': 'Summary could not produce a valid result'},
                               diagnostic={'type':type(exc).__name__, 'detail':str(exc)},
-                              generation=getattr(self.extractor, 'last_generation', None))
+                              generation=None if isinstance(exc, InputResolutionError) else getattr(self.extractor, 'last_generation', None))
         finally:
             timer.cancel()
             with self.lock:
@@ -187,7 +211,7 @@ class Application:
 
 
 def execution_view(data):
-    return {k:v for k,v in data.items() if k not in ('request','output','typed_output','generation','diagnostic')}
+    return {k:v for k,v in data.items() if k not in ('request','output','typed_output','generation','diagnostic','input_snapshot')}
 
 
 def _base_spec():
@@ -212,6 +236,13 @@ def _base_spec():
 
 def api_spec():
     spec = _base_spec()
+    spec['paths']['/summary-results/latest'] = {'get': {
+        'summary': 'Latest submitted execution and latest successful result for an exact patient/encounter/episode',
+        'parameters': [{'in':'query','name':k,'required':True,'schema':{'type':'string'}}
+                       for k in ('patient_id','encounter_id','episode_id')] +
+                      [{'in':'query','name':'format','schema':{'type':'string','enum':['mock','typed']}}],
+        'responses': {'200':{'description':'Latest attempt, nullable latest successful output, and superseded-by-attempt flag; no freshness guarantee'},
+                      '400':{'description':'Missing identifiers'},'404':{'description':'No matching execution'}}}}
     evidence = {'type':'object','required':['source_ref'],'properties':{
         'source_ref':{'type':'string'},'quote':{'type':'string'},'record':{'type':'object'}},
         'description':'Exactly source_ref+quote for narrative or source_ref+record for structured evidence.'}
@@ -220,7 +251,7 @@ def api_spec():
     typed_item = {'type':'object','additionalProperties':False,
         'required':['question','status','value','evidence','alternatives'],
         'properties':{'question':{'type':'string'},'status':{'type':'string','enum':['documented','not_stated','explicitly_unknown','conflicting','not_applicable']},
-        'value':{'nullable':True,'description':'Boolean for use/history; time object for LKW; null for unknown/conflicting. See S1_TYPED_SUMMARY.md.'},
+        'value':{'nullable':True,'description':'Boolean for use/history; time object for LKW; null for unknown/conflicting. See CONTRACT.md.'},
         'evidence':{'type':'array','items':{'$ref':'#/components/schemas/Evidence'}},
         'alternatives':{'type':'array','items':{'$ref':'#/components/schemas/Alternative'}}}}
     mock_item = {'type':'object','required':['status','value','confidence','sources','confirmation_status','alternatives'],
@@ -248,6 +279,9 @@ def api_spec():
             'execution_id':{'type':'string'},'status':{'type':'string','enum':['QUEUED','RUNNING','SUCCESS','FAILED']},
             'submitted':{'type':'string','format':'date-time'},'started':{'type':'string','format':'date-time'},
             'completed':{'type':'string','format':'date-time'},'error':{'type':'object','nullable':True}}}}}
+    spec['components']['schemas']['Execution']['properties'].update(
+        question_plan={'type':'object'}, input_audit={'type':'object',
+        'description':'Source hashes/timestamps, coverage and implementation fingerprints. Raw input snapshot is private to the store.'})
     post=spec['paths']['/agents/clinical-summary-agent/invoke']['post']
     post['responses']['200']['content']={'application/json':{'schema':{'oneOf':[{'$ref':'#/components/schemas/IntegrationOutput'},{'$ref':'#/components/schemas/TypedOutput'}]}}}
     for code in ('202','422','504'):
@@ -327,6 +361,20 @@ def make_server(app, host='127.0.0.1', port=8091, api_token=None, cors_origin=No
                 if path in ('/','/openapi.json'): return self.send(200,api_spec())
                 if path=='/examples/s1' and app.demo_cases:
                     return self.send(200,{'request':app.demo_cases[0]['request'],'mock_only':True})
+                if path=='/summary-results/latest':
+                    keys = ('patient_id','encounter_id','episode_id')
+                    if any(len(q.get(k, [])) != 1 or not q[k][0].strip() for k in keys):
+                        raise ValueError('Exactly one patient_id, encounter_id and episode_id are required')
+                    latest, success = app.store.latest(*(q[k][0] for k in keys))
+                    if latest is None: return self.send(404, {'error':{'code':'NOT_FOUND'}})
+                    return self.send(200, {'latest_execution': execution_view(latest),
+                        'latest_success': None if success is None else {
+                            'execution_id': success['execution_id'], 'submitted':success['submitted'],
+                            'completed':success['completed'], 'output_format':fmt,
+                            'input_audit':success.get('input_audit'),
+                            'output':success['typed_output'] if fmt=='typed' else success['output']},
+                        'has_newer_attempt': success is not None and latest['execution_id'] != success['execution_id'],
+                        'selection_policy':'latest submitted successful execution; not verified against current upstream data; question sets may differ'})
                 for prefix in ('/agent-executions/','/agent-results/'):
                     if path.startswith(prefix):
                         data=app.store.get(path[len(prefix):])
