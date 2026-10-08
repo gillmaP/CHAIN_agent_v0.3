@@ -173,6 +173,20 @@ class TpaTests(unittest.TestCase):
     def test_completed_ncct_requires_a_physician_read(self):
         self.assertEqual(self.checks()['C02_NO_ICH_ON_NCCT']['result'], 'REQUIRES_PHYSICIAN_READ')
 
+    def test_upstream_completed_status_is_scoped_to_ncct(self):
+        self.change('ncct_completed', status='COMPLETED', confirmation_status='PHYSICIAN_READ_REQUIRED')
+        before = copy.deepcopy(self.snapshot)
+        output = self.output()
+        checks = {item['check_id']: item for item in output['assessment']['checks']}
+        self.assertEqual(checks['C02_NO_ICH_ON_NCCT']['result'], 'REQUIRES_PHYSICIAN_READ')
+        self.assertNotIn('ncct_completed', output['assessment']['missing_information'])
+        self.assertEqual(output['evidence_package'], before['facts'])
+        self.assertEqual(self.snapshot, before)
+        self.change('ncct_order_id', value='OTHER-ORDER')
+        self.assertEqual(self.checks()['C02_NO_ICH_ON_NCCT']['result'], 'CONFLICT')
+        self.change('platelet_count', status='COMPLETED')
+        self.assertEqual(self.checks()['C03_PLATELET_GE_100K']['result'], 'PENDING')
+
     def test_ncct_order_mismatch_is_conflict(self):
         self.change('ncct_order_id', value='OTHER-ORDER')
         self.assertEqual(self.checks()['C02_NO_ICH_ON_NCCT']['result'], 'CONFLICT')
@@ -220,6 +234,22 @@ class TpaTests(unittest.TestCase):
                 self.assertEqual(self.checks()['C05_NO_ANTICOAGULANT']['result'], 'PASS_UNCONFIRMED')
         self.change('anticoagulant', value=False, confirmation_status='PHYSICIAN_CONFIRMED')
         self.assertEqual(self.checks()['C05_NO_ANTICOAGULANT']['result'], 'PASS')
+
+    def test_upstream_no_evidence_status_remains_unconfirmed(self):
+        for confirmation in ('UNCONFIRMED', 'PHYSICIAN_CONFIRMED'):
+            with self.subTest(confirmation=confirmation):
+                self.change('anticoagulant', value=False, status='NO_EVIDENCE', confirmation_status=confirmation)
+                output = self.output()
+                checks = {item['check_id']: item for item in output['assessment']['checks']}
+                self.assertEqual(checks['C05_NO_ANTICOAGULANT']['result'], 'PASS_UNCONFIRMED')
+                self.assertNotIn('anticoagulant', output['assessment']['missing_information'])
+                self.assertEqual(output['evidence_package'], self.snapshot['facts'])
+        self.change('anticoagulant', value=True)
+        self.assertEqual(self.checks()['C05_NO_ANTICOAGULANT']['result'], 'REQUIRES_PHYSICIAN_REVIEW')
+        self.change('anticoagulant', value=None)
+        self.assertEqual(self.checks()['C05_NO_ANTICOAGULANT']['result'], 'PENDING')
+        self.change('platelet_count', status='NO_EVIDENCE')
+        self.assertEqual(self.checks()['C03_PLATELET_GE_100K']['result'], 'PENDING')
 
     def test_anticoagulant_exposure_is_review_not_automatic_exclusion(self):
         for value in (True, 'PRESENT', 'apixaban', {'drug': 'warfarin', 'last_dose': None}):

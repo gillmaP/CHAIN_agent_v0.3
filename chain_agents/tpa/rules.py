@@ -92,7 +92,9 @@ def anticoagulant(facts: Facts) -> dict:
     elif not isinstance(value, bool):
         return check(*args, 'REQUIRES_PHYSICIAN_REVIEW', value=value,
                      detail='Exposure, drug, last dose, renal function and specific assays require review.', sources=('ESO2021',))
-    confirmed = value is False and facts.raw['anticoagulant'].get('confirmation_status') == 'PHYSICIAN_CONFIRMED'
+    fact = facts.raw['anticoagulant']
+    confirmed = (value is False and fact['status'] != 'NO_EVIDENCE'
+                 and fact.get('confirmation_status') == 'PHYSICIAN_CONFIRMED')
     result = 'PASS' if confirmed else 'PASS_UNCONFIRMED' if negative else 'REQUIRES_PHYSICIAN_REVIEW'
     return check(*args, result, value=value,
                  detail='No evidence is not confirmed absence. Do not automatically exclude all anticoagulant users.', sources=('ESO2021',))

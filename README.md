@@ -74,6 +74,13 @@ def invoke(request, snapshot, services) -> dict:
 기본 개발은 Temporal 없이 가능합니다. 전체 연결 검증만 upstream 의존성이 필요합니다.
 원본 checkout을 변경하지 않고 **새 형제 폴더**에 통합 사본을 만듭니다.
 
+upstream의 설치 검증은 파일 바이트 hash를 사용합니다. 새 checkout은 아래처럼 줄바꿈 자동 변환을 끄고 받으세요.
+Windows에서 전체 fixture 데모를 실행할 때는 upstream의 경로 검사 제약 때문에 WSL/Linux 환경을 사용합니다.
+
+```bash
+git -c core.autocrlf=false clone https://github.com/donggunseo/chain-orchestrator-v03.git ../chain-orchestrator-v03
+```
+
 ```bash
 # parent/
 #   chain-agent-starter/       이 저장소

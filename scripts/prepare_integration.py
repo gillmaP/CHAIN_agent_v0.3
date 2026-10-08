@@ -44,7 +44,7 @@ def prepare(upstream, output, demo=False):
         paths=[output/'chain_agents/__init__.py',output/'chain_agents/common.py']
         paths+=sorted((output/'chain_agents'/team).rglob('*.py'))
         if team=='screening':paths+=sorted((output/fixture_relative).rglob('*.json'))
-        files={str(p.relative_to(output)):'sha256:'+hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+        files={p.relative_to(output).as_posix():'sha256:'+hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         manifest={'version':'starter-1','entrypoint':f'chain_agents.{team}.agent:invoke',
                   'contract':'chain-agent/v0.3','installed':True,'status':'APPROVED' if demo else 'PENDING',
                   'agent_id':spec['agent_id'],'agent_version':VERSION,

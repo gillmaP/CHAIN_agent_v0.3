@@ -39,6 +39,8 @@ FAIL 소견, CONFLICT, 필수 자료 미확보 순으로 상태를 정합니다.
 `PENDING`, `CONFLICT`, `NOT_IN_SCOPE`, `PASS_UNCONFIRMED`, `PASS_WITH_FLAG`,
 `REQUIRES_PHYSICIAN_READ`, `REQUIRES_PHYSICIAN_REVIEW`는 미확정 근거를 구분합니다.
 사용 가능한 Fact 상태는 AVAILABLE/CONFIRMED/CONSISTENT/PRESENT이며,
+ncct_completed의 COMPLETED와 anticoagulant의 NO_EVIDENCE는 해당 필드에서만 읽습니다.
+각각 REQUIRES_PHYSICIAN_READ와 PASS_UNCONFIRMED로 표시하며 완료·근거 없음을 임상 승인으로 바꾸지 않습니다.
 그 외 상태는 원문을 evidence_package에 유지하고 미확보로 표시합니다.
 
 각 체크의 `evidence`는 요청 scope 안의 Fact metadata입니다. source_ref, version,
@@ -55,7 +57,7 @@ source_time, known_at, unit, confirmation_status, dependencies를 유지합니�
 
 ## 통합 시 확인
 
-1. Console의 문자열 assessment 렌더링과 새 객체·enum 처리.
+1. 현재 upstream Console의 객체 표시는 확인했습니다. JLK UI의 새 객체·enum 처리는 공동 검토가 필요합니다.
 2. 추가 병력 Fact 이름, scope, confirmation_status 용어.
 3. 기관 승인 프로토콜, 약제와 자료 단위 규약.
 4. Agent 버전과 파일 hash를 포함한 Registry 검토·갱신.

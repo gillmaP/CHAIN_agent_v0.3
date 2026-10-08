@@ -16,6 +16,12 @@ upstream Registry는 entrypoint의 실제 파일이 **프로젝트 root 내부**
 
 starter 루트에서:
 
+upstream checkout은 파일 바이트 hash가 보존되도록 줄바꿈 자동 변환 없이 받습니다.
+
+```bash
+git -c core.autocrlf=false clone https://github.com/donggunseo/chain-orchestrator-v03.git ../chain-orchestrator-v03
+```
+
 ```bash
 python scripts/prepare_integration.py --upstream ../chain-orchestrator-v03 \
   --output ../chain-integration-demo --synthetic-demo
@@ -44,6 +50,11 @@ PY
 ## 로컬 엔진 전체 데모
 
 upstream requirements를 설치한 환경에서 실행합니다. `--backend local`도 Temporal SDK를 import하지만 별도 Temporal 서버는 필요 없습니다.
+
+Windows에서는 WSL/Linux 환경에서 아래 전체 데모를 실행합니다. 확인한 upstream
+`642f5b40525691912c685dda06043f79e37bcd1f`의 FixtureBackend는 파일 허용 목록과 비교할 때
+OS별 경로 문자열을 사용해서 Windows에서 Screening이 `FIXTURE_NOT_INSTALLED`로 실패합니다.
+생성 manifest 경로는 `/`로 통일했으며, tPA의 structured Runtime 호출은 Windows에서도 확인했습니다.
 
 ```bash
 python -m demo --backend local --test-mode --hitl recorded \

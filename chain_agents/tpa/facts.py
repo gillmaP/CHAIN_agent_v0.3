@@ -46,8 +46,14 @@ class Facts:
 
     def available(self, name: str) -> bool:
         fact = self.raw.get(name)
+        statuses = {'AVAILABLE', 'CONFIRMED', 'CONSISTENT', 'PRESENT'}
+        # Upstream domain statuses are meaningful only for these fields.
+        if name == 'ncct_completed':
+            statuses.add('COMPLETED')
+        elif name == 'anticoagulant':
+            statuses.add('NO_EVIDENCE')
         return bool(fact and fact['value'] is not None and fact['status'] not in MISSING_STATUSES
-                    and fact['status'] in {'AVAILABLE', 'CONFIRMED', 'CONSISTENT', 'PRESENT'})
+                    and fact['status'] in statuses)
 
     def value(self, name: str):
         return self.raw[name]['value']

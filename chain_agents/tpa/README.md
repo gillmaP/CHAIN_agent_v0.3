@@ -129,6 +129,9 @@ Fact 필수 필드는 `value`, `status`, `source_ref`, `source_time`, `known_at`
 선택 metadata인 `unit`, `confirmation_status`, `dependencies`도 입력 그대로 보존합니다.
 미확보는 `value: null`과 해당 상태로 표현합니다. `false`나 `0`을 결측으로 치환하지 않습니다.
 사용 가능한 상태는 `AVAILABLE`, `CONFIRMED`, `CONSISTENT`, `PRESENT`이며,
+upstream의 필드별 표현인 `ncct_completed.status: COMPLETED`와
+`anticoagulant.status: NO_EVIDENCE`도 해당 필드에서만 읽습니다.
+CT 완료는 `REQUIRES_PHYSICIAN_READ`, 항응고제 근거 없음은 `PASS_UNCONFIRMED`로 표시합니다.
 그 외 상태는 근거에 보존하되 남아 있는 수치를 평가에 쓰지 않습니다.
 
 ### 기본 scope와 단위
@@ -266,6 +269,16 @@ upstream 기본 tPA backend는 **fixture**입니다. 우리 구현을 사용하�
 아래 경로는 예시이며 upstream checkout과 output은 실제 위치로 바꿉니다. output은 아직 없는 형제 폴더여야 합니다.
 단일 줄 명령이므로 PowerShell에서도 같은 형태로 실행할 수 있습니다.
 
+upstream 설치 검증은 파일 바이트 hash를 비교하므로 새 checkout은 줄바꿈 자동 변환 없이 받습니다.
+
+```bash
+git -c core.autocrlf=false clone https://github.com/donggunseo/chain-orchestrator-v03.git ../chain-orchestrator-v03
+```
+
+기존 checkout에서 `installed file hash mismatch`가 발생하면 자동 변환된 줄바꿈을 확인하고,
+작업 중인 파일을 덮어쓰지 말고 위 명령으로 새 checkout을 받습니다.
+생성 manifest의 파일 경로는 Windows에서도 `/`로 통일합니다.
+
 ```bash
 # 이 저장소 루트: upstream 의존성은 전체 연결 검증 때만 필요
 python -m pip install -r ../chain-orchestrator-v03/requirements.txt
@@ -285,6 +298,10 @@ python -c "from chain_demo.orchestration_config import load_orchestration_bundle
 ```
 
 설정 확인 후 별도로 전체 합성 local 데모를 실행할 수 있습니다. 실행마다 새 output 경로를 지정합니다.
+Windows에서는 아래 전체 데모를 WSL/Linux에서 실행하세요. 확인한 upstream revision의
+`chain_demo/agents/fixture_backend.py`는 허용 파일과 비교할 때 OS별 경로 문자열을 사용해서,
+Windows에서는 앞단 Screening fixture가 `FIXTURE_NOT_INSTALLED`로 실패합니다.
+이 문제와 tPA의 `structured` Runtime 호출 호환성은 구분합니다.
 
 ```bash
 python -m demo --backend local --test-mode --hitl recorded --recorded demo/scenarios/recorded_hitl.json --expected demo/scenarios/expected.json --run-timeout 180 --output-dir output/jlk-tpa-check-01
@@ -349,9 +366,10 @@ API 명세·허용 식별자·scope·자료 출처 반환 계약을 먼저 합�
 5. UI에서 실행 SUCCESS와 임상 검토 상태를 구분하고 미확보·범위 밖·의료진 확인·근거·용량 미리보기를 표시.
 6. HITL #2의 고정 근거와 의료진 응답을 연결하고 실패·늦은 결과·재요청을 최종 통합 구성에서 검증.
 
-2026-10-08 README 갱신 시 전체 단위 테스트 54개, 문서의 직접 호출 예제·CLI 4사례,
-upstream revision `642f5b40525691912c685dda06043f79e37bcd1f`의 request/result wire validator와 출력 key 검사를 확인했습니다.
-연동 위치도 해당 코드를 다시 읽어 확인했습니다. 이 검증은 전체 Temporal/UI 연동 성공을 의미하지 않습니다.
+2026-10-08 upstream revision `642f5b40525691912c685dda06043f79e37bcd1f` 기준으로
+단위 테스트 56개와 실제 등록된 Runtime의 합성 4사례 호출·출력 key·근거 보존·Console 표시를 확인했습니다.
+전체 Local Engine 합성 데모의 검증 범위와 제약은 [검증 기록](../../docs/VALIDATION.md)에 정리했습니다.
+실제 Temporal Service/History Replay와 JLK UI·병원 API 연동 성공을 의미하지 않습니다.
 
 ## 구현 구조
 
