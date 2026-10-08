@@ -54,7 +54,8 @@ class ScreeningDiagnosticsTests(unittest.TestCase):
             report = json.loads(invalid.read_text(encoding='utf-8'))
             self.assertIn('weakness_in_arm', report['validation_error'])
             self.assertIn('weakness_in_arm', report['raw_llm_response'])
-            self.assertEqual(os.stat(invalid).st_mode & 0o777, 0o600)
+            if os.name != 'nt':
+                self.assertEqual(os.stat(invalid).st_mode & 0o777, 0o600)
 
 
 if __name__ == '__main__':

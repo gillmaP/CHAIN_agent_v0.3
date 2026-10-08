@@ -352,8 +352,6 @@ LLM의 내부 반환 구조는 `facts`와 `reviewed_documents`입니다. 코드�
 }
 ```
 
-현재 구현은 최상위 `mock_only`를 `true`로 반환합니다.
-
 ## 5. Orchestrator 및 Tool/API 연동
 
 ### 실행 흐름
@@ -361,39 +359,24 @@ LLM의 내부 반환 구조는 `facts`와 `reviewed_documents`입니다. 코드�
 ```text
 Orchestrator가 Agent를 선택
         ↓
-요청별 request, snapshot, services 구성
+선택된 Agent에 요청 자료와 실행 서비스를 전달
         ↓
 선택된 Agent의 invoke(request, snapshot, services) 호출
         ↓
-Agent가 해당 도메인의 결과 dict 반환
-        ↓
-실행 결과 저장·조회 및 화면 전달
+Agent가 업무 결과를 반환
 ```
 
-Agent는 업무 결과만 반환합니다. 실행 ID의 상태, 기술적 성공·실패, 재시도, 결과 저장, 후속 workflow 전이는 Agent 결과와 별도 계층에서 처리해야 합니다.
+Agent에서 입력 검증, 자료 조회 또는 모델 처리에 실패하면 예외를 호출자에게 전달합니다. 이를 실행 시스템의 오류 응답으로 변환하는 방식은 연동 시 함께 정리해야 합니다.
 
 ### Agent별 연결 지점
 
 | Agent | 코드 진입점 | 입력·도구 연결 방식 |
 |---|---|---|
 | Screening | `chain_agents.screening.agent.invoke` | `snapshot.facts`에서 문서와 구조화 정보를 받음. `services.backend.select(request, snapshot)`으로 합성 backend 또는 로컬 LLM backend 연결 |
-| Summary | `chain_agents.summary.agent.invoke` | `services.data_api.get(path)`로 참조 자료 조회. 문서가 있으면 `services.extractor.extract(documents, questions)`로 내부 추출기 호출. 선택적인 `services.input_observer`는 입력 감사 정보를 전달받음 |
+| Summary | `chain_agents.summary.agent.invoke` | `services.data_api`로 요청 자료를 조회하고, `services.extractor`로 문서 내용을 처리 |
 | tPA | `chain_agents.tpa.agent.invoke` | `snapshot.facts`에 포함된 구조화 정보만 사용. 현재 `services`는 사용하지 않음 |
 
-Summary의 `input_references`는 현재 코드에서 다음 조회 경로로 해석됩니다. 이 경로는 Agent가 자료 조회 서비스에 전달하는 내부 인터페이스이며, 기관의 최종 REST API 명세를 뜻하지 않습니다.
-
-| 참조 | 조회기 인자 경로 |
-|---|---|
-| `document:<id>@<version>` | `/documents/<id>?version=<version>` |
-| `medication:active` | `/patients/<patient_id>/medications?status=active` |
-| `condition:problem_list` | `/patients/<patient_id>/conditions` |
-| `encounter_history:6m` | `/patients/<patient_id>/encounters?months=6` |
-
-Summary는 반환 전에 환자 ID, 내원 ID, 문서 ID·버전·유형·상태를 확인합니다. 구조화 약물 분류와 문제 목록/최근 내원 자료는 코드가 처리합니다. 문서가 있으면 내부 추출기가 질문 정의와 원문을 받아 사실 및 인용을 추출합니다. 조회·검증 실패는 실행 오류이며, 정상적으로 검토한 자료에 언급이 없을 때에만 `not_stated`를 반환합니다.
-
-### REST/API 및 결과 사용 범위
-
-현재 코드가 제공하는 연결점은 Python 함수와 주입형 서비스 인터페이스입니다. 위 조회 경로는 Summary가 `data_api.get(path)`에 전달하는 내부 형식이며, Orchestrator의 최종 요청·응답 형식이나 병원 API 명세와 동일하다고 가정하지 않습니다. Agent는 도메인 결과 `dict`를 반환하며, 바깥 실행 envelope는 여기서 정의하지 않습니다.
+Summary는 요청한 자료를 검증한 뒤 질문별 결과를 반환합니다. 자료를 확인했으나 답이 없는 경우와 자료 조회·검증에 실패한 경우를 구분합니다.
 
 ## 6. 실행 방법
 
@@ -412,21 +395,28 @@ python -m examples.run all
 
 ### 로컬 LLM 실행
 
-필요한 패키지를 설치한 다음 로컬 가중치 경로를 지정합니다. 아래 Summary 실행은 실제 로컬 모델을 한 번 호출합니다.
+Summary와 Screening은 같은 로컬 LLM 실행 환경을 사용합니다. 먼저 대상 서버에 맞는 CUDA 지원 PyTorch를 준비한 뒤, 저장소 루트에서 공통 의존성을 한 번 설치합니다.
 
 ```bash
-python -m pip install -r chain_agents/summary/requirements-llm.txt
+python -m pip install -r requirements-llm.txt
+```
 
+아래 Summary 예제는 로컬 가중치를 사용해 실제 추론을 실행합니다.
+
+```bash
 python -m examples.summary --model qwen35_9b --gpu 2 --model-dir /path/to/Qwen3.5-9B
 python -m examples.summary --model gemma4_12b_it --gpu 3 --model-dir /path/to/gemma-4-12B-it
 ```
 
-Screening 실제 모델 호출은 다음과 같습니다.
+Screening은 처음 실행하기 전에 고정된 모델 버전을 내려받고 확인합니다. 모델 파일은 별도로 지정한 모델 디렉터리에 보관합니다.
 
 ```bash
-python -m pip install -r chain_agents/screening/requirements-llm.txt
+python scripts/screening_experiment.py download --model qwen35_9b --model-root /path/to/models
+python scripts/screening_experiment.py check-model --model qwen35_9b --model-root /path/to/models
 python scripts/screening_model_demo.py --model qwen35_9b --gpu 2 --model-root /path/to/models
 ```
+
+모델을 내려받은 뒤에는 추론 과정에서 외부 모델 서비스에 연결하지 않습니다.
 
 tPA의 합성 시나리오는 다음과 같이 실행합니다.
 
@@ -448,7 +438,7 @@ python -m unittest discover -s tests -v
 | 과제 | 현재 상태 | 다음 작업 |
 |---|---|---|
 | Orchestrator 연동 | Agent별 입력과 결과를 Orchestrator와 함께 통합 검증하는 작업이 남아 있습니다. | 실제 호출 흐름에 맞춰 입력 연결과 결과 전달을 확인합니다. |
-| 실행 결과 처리 | 실행 실패와 검토가 필요한 업무 결과를 구분해 전달하는 공통 방식이 정리되어 있지 않습니다. | 호출자가 실행 상태와 업무 결과를 구분할 수 있도록 전달 방식을 정리합니다. |
+| Agent 실행 오류 | 입력·자료 조회·모델 처리 실패는 예외로 전달합니다. 이를 실행 시스템의 오류 응답으로 변환하는 방식은 함께 정리해야 합니다. | 실행 실패와 정상적인 임상 검토 결과가 구분되도록 연결 방식을 확인합니다. |
 | Summary 갱신 | 현재 요청 자료를 바탕으로 Summary를 새로 생성해 반환합니다. 기존 Summary에 새 자료를 반영하는 갱신 기능은 구현되어 있지 않습니다. | 필요한 갱신 동작을 정하고 구현합니다. |
 
 ## 8. 코드 구성

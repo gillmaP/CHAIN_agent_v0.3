@@ -55,7 +55,7 @@ def verify_local_model(model_key: str) -> Path:
 
 
 class LocalScreeningModel:
-    def __init__(self, model_key='qwen35_9b', gpu='0', max_new_tokens=1800):
+    def __init__(self, model_key='qwen35_9b', gpu='0', max_new_tokens=8192):
         if model_key not in MODELS:
             raise ValueError('Unsupported Screening model')
         if not str(gpu).isdigit() or int(max_new_tokens) < 1:

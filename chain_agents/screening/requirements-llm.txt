@@ -1,8 +1,0 @@
-# Aligned with the three local multimodal model checkpoints listed by Team 2.
-# Install these into the team's existing CUDA-enabled PyTorch environment.
-# Never replace the existing GPU torch build just to install this file.
-transformers==5.9.0
-accelerate==1.13.0
-huggingface_hub==1.19.0
-safetensors==0.7.0
-Pillow==10.2.0

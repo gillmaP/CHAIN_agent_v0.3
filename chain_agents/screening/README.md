@@ -18,13 +18,21 @@ result = invoke(request, snapshot, services)
 python -m examples.run screening
 ```
 
-실제 로컬 모델을 공통 `invoke` 진입점으로 실행:
+실제 로컬 모델은 처음 사용할 때 고정 버전을 내려받고 확인합니다.
+
+```bash
+python scripts/screening_experiment.py download --model qwen35_9b --model-root /path/to/models
+python scripts/screening_experiment.py check-model --model qwen35_9b --model-root /path/to/models
+```
+
+그 뒤 공통 `invoke` 진입점으로 실행합니다.
 
 ```bash
 python scripts/screening_model_demo.py --model qwen35_9b --gpu 2 --model-root /path/to/models
 ```
 
 모델은 `chain_agents/screening/local_model.py`가 로컬 가중치에서 불러옵니다. 추론 중 Hub나 외부 모델 API를 호출하지 않습니다.
+공통 의존성은 저장소 루트의 `requirements-llm.txt`에 있습니다.
 
 ## 반환 결과
 

@@ -3,7 +3,9 @@ import copy
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 from chain_agents.summary.agent import invoke
+from chain_agents.summary.extractor import LocalSummaryExtractor
 from chain_agents.services import AgentServices
 from chain_agents.summary.data_contract import FixtureDataAPI
 from examples.summary import FixtureExtractor
@@ -44,3 +46,13 @@ class SummaryModuleTests(unittest.TestCase):
         request = dict(self.fixture['request'], input_snapshot_id='snapshot-a')
         with self.assertRaisesRegex(ValueError, 'Snapshot binding mismatch'):
             invoke(request, {'snapshot_id': 'snapshot-b'}, AgentServices(data_api=self.reader, extractor=self.extractor))
+
+    def test_local_extractor_has_default_gpu_for_medgemma(self):
+        with patch('chain_agents.summary.extractor.LocalModel') as local_model:
+            LocalSummaryExtractor('medgemma15_4b_it', '/models/medgemma-1.5-4b-it')
+        local_model.assert_called_once_with(
+            'medgemma15_4b_it',
+            '/models/medgemma-1.5-4b-it',
+            gpu_index='1',
+            max_new_tokens=8192,
+        )

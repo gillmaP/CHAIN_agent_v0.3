@@ -1,9 +1,0 @@
-# Validated isolated Python 3.11 runtime on 2026-10-08; do not upgrade the system environment.
-# Install matching CUDA torch/torchvision/torchaudio separately for the target host.
-transformers==5.19.0
-accelerate==1.13.0
-huggingface_hub==1.33.0
-safetensors==0.8.0
-tokenizers==0.23.2
-Pillow==10.2.0
-protobuf==5.29.2

@@ -1,12 +1,13 @@
 """No GPU or Hub access: inspect pinned model packaging and local-verification path."""
 import json
+import inspect
 import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from chain_agents.screening.local_model import model_location, model_root, verify_local_model
+from chain_agents.screening.local_model import LocalScreeningModel, model_location, model_root, verify_local_model
 from chain_agents.screening.prototype import MODELS
 
 
@@ -38,11 +39,17 @@ class ScreeningModelPackagingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'CHAIN_SCREENING_MODEL_ROOT'):
                 model_root()
 
-    def test_requirements_are_standalone(self):
-        path = Path(__file__).resolve().parents[1] / 'chain_agents/screening/requirements-llm.txt'
+    def test_requirements_are_shared_by_both_llm_agents(self):
+        path = Path(__file__).resolve().parents[1] / 'requirements-llm.txt'
         req = path.read_text(encoding='utf-8')
-        self.assertIn('transformers==5.9.0', req)
-        self.assertNotIn('-r ../summary/', req)
+        self.assertIn('transformers==5.19.0', req)
+        self.assertIn('huggingface_hub==1.33.0', req)
+
+    def test_screening_default_generation_limit_matches_model_runner(self):
+        self.assertEqual(
+            inspect.signature(LocalScreeningModel).parameters['max_new_tokens'].default,
+            8192,
+        )
 
 
 if __name__ == '__main__':

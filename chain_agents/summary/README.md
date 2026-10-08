@@ -25,10 +25,10 @@ python -m examples.summary --model qwen35_9b --gpu 2 --model-dir /path/to/Qwen3.
 python -m examples.summary --model gemma4_12b_it --gpu 3 --model-dir /path/to/gemma-4-12B-it
 ```
 
-실제 모델 실행에는 PyTorch와 Transformers가 설치되어 있어야 합니다.
+실제 모델 실행 전 대상 서버에 맞는 CUDA 지원 PyTorch를 준비합니다. 공통 LLM 의존성은 저장소 루트에서 한 번 설치합니다.
 
 ```bash
-python -m pip install -r chain_agents/summary/requirements-llm.txt
+python -m pip install -r requirements-llm.txt
 ```
 
 ## Orchestrator 호출 위치

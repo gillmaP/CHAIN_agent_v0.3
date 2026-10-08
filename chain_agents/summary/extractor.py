@@ -2,10 +2,15 @@
 import json
 import time
 
-from .local_model import LocalModel
+from .local_model import LocalModel, model_config
 from .contract import QUESTION_CATALOG, validate_model_payload
 
 MAX_NEW_TOKENS = 8192
+DEFAULT_GPUS = {
+    'qwen35_9b': '2',
+    'gemma4_12b_it': '3',
+    'medgemma15_4b_it': '1',
+}
 
 DIRECT_PROMPT = '''You extract facts for the Clinical Summary. Work only from the supplied narrative documents and fixed question catalog. Return only one JSON object with exactly: {"facts": [...], "reviewed_documents": [...]}.
 Each fact has EXACTLY question, status, value, evidence. Each evidence entry has EXACTLY source_ref and quote. Do not output an assertion/polarity property.
@@ -72,7 +77,8 @@ class LocalSummaryExtractor:
     def __init__(self, model_key, model_dir, gpu=None, max_new_tokens=MAX_NEW_TOKENS, method='direct'):
         if method not in ('direct', 'evidence_first'):
             raise ValueError('method must be direct or evidence_first')
-        gpu = str(gpu if gpu is not None else {'qwen35_9b': '2', 'gemma4_12b_it': '3'}[model_key])
+        model_config(model_key)
+        gpu = str(gpu if gpu is not None else DEFAULT_GPUS[model_key])
         self.backend = LocalModel(model_key, model_dir, gpu_index=gpu, max_new_tokens=max_new_tokens)
         self.model_key = model_key
         self.gpu = str(gpu)

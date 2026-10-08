@@ -64,10 +64,11 @@ def output_destination(output: Path | None, model_key: str, command: str) -> Pat
 
 
 def save_private_json(output: Path, obj: dict) -> None:
-    """Restrict permissions: raw model text may reproduce patient notes."""
+    """Restrict permissions on POSIX; on Windows the file inherits its folder ACL."""
     output.parent.mkdir(parents=True, exist_ok=True)
     fd = os.open(str(output), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(fd, 0o600)
+    if hasattr(os, 'fchmod'):
+        os.fchmod(fd, 0o600)
     with os.fdopen(fd, 'w', encoding='utf-8') as fp:
         json.dump(obj, fp, indent=2, ensure_ascii=False)
         fp.write('\n')
@@ -87,13 +88,13 @@ def main(argv=None):
     eva.add_argument('--model', choices=sorted(MODELS), default='qwen35_9b')
     eva.add_argument('--gpu', default='0')
     eva.add_argument('--model-root', type=Path)
-    eva.add_argument('--max-new-tokens', type=int, default=1800)
+    eva.add_argument('--max-new-tokens', type=int, default=8192)
     eva.add_argument('--output', type=Path, help='Optional private directory report JSON')
     run = sub.add_parser('run', help='Offline GPU inference on scoped input JSON.')
     run.add_argument('--model', choices=sorted(MODELS), default='qwen35_9b')
     run.add_argument('--gpu', default='0')
     run.add_argument('--model-root', type=Path)
-    run.add_argument('--max-new-tokens', type=int, default=1800)
+    run.add_argument('--max-new-tokens', type=int, default=8192)
     run.add_argument('--input', type=Path, default=ROOT/'examples/screening_case.json')
     run.add_argument('--output', type=Path, help='Optional output JSON file. Do not store PHI in Git.')
     args = parser.parse_args(argv)

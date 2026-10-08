@@ -10,7 +10,7 @@
 | KSS2025 | [대한뇌졸중학회 TNK 과학적 성명](https://pmc.ncbi.nlm.nih.gov/articles/PMC12411285/) | TNK 0.25 mg/kg 계산 참고. 출판사/검색 색인 내용 확인, PMC 본문은 CAPTCHA로 전체 접근 불가 |
 | CHAIN_MOCK | 전달받은 CHAIN 계획서의 §8.1·§8.4·§8.4′·§11 | 12개 체크 ID, 혈압 경계와 혈당 50–400 예시. 설계 참고이며 독립적인 임상 근거는 아님 |
 
-이 Agent의 현재 입력 경계와 Host의 역할은 [Orchestrator 연동 안내](../../docs/INTEGRATION.md)에 설명되어 있습니다.
+세 Agent의 공통 호출 방식과 연결 지점은 [저장소 README](../../README.md)에서 확인할 수 있습니다.
 공유된 Orchestrator 코드는 실행 방식을 파악하기 위한 참고 자료이며, 이 Agent의 임상 규칙이나 입출력 계약을 자동으로 결정하지 않습니다.
 계획서의 HTTP 참조 흐름, 두 번 호출하는 예시, 별도 Runtime은 현재 Agent 구현에 포함하지 않았습니다.
 
