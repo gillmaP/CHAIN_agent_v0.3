@@ -1,45 +1,49 @@
-# Orchestrator 연결과 통합 예제
+# Orchestrator 연결
 
-## 현재 v0.3 plugin 경로
+## 공통 호출
 
-| Alias | Entrypoint | 현재 모드 | 서비스 |
+각 Agent는 다음 형태로 호출됩니다.
+
+    invoke(request, snapshot, services) -> dict
+
+Agent는 요청된 작업을 처리해 도메인 결과를 반환합니다. Orchestrator Runtime은 실행 envelope와 workflow 상태를 관리합니다.
+
+## Summary 호출 경로
+
+| 경로 | 입력 | 결과 | 역할 |
 |---|---|---|---|
-| `stroke_screening` | `chain_agents.screening.agent:invoke` | `screening` | mock/local backend |
-| `clinical_summary` | `chain_agents.summary.agent:invoke` | `context` | cache |
-| `tpa_decision_support` | `chain_agents.tpa.agent:invoke` | `interim`, `final` | 공통 service object |
+| S1 | episode/encounter, 자료 참조, 질문 | 질문별 items, missing information | 이 프로젝트에서 구현하는 Summary 흐름 |
+| context | v0.3 scoped snapshot facts | structured_context, missing_information, cache | 기존 starter 계약과의 호환 경로 |
 
-Orchestrator Runtime은 v0.3 request/snapshot을 검증하고 `invoke(request, snapshot, services)`를 호출한 뒤 도메인 결과를 공통 envelope로 감쌉니다. Screening `invoke_v012`는 별도 Mock v0.12 adapter입니다.
+context는 원래 v0.3 starter에 있던 snapshot 요약 경로입니다. S1과는 입력·결과가 다르며, S1 workflow의 두 번째 요약 단계가 아닙니다.
 
-## AgentServices extension point
+## Summary 서비스
 
-이 repo의 `chain_agents.services.AgentServices`는 worker-local `cache`, `backend`, `data_api`, `extractor`, `input_observer`를 전달합니다. 그러나 확인한 upstream Runtime은 `cache`와 선택적인 fixture `backend`만 생성합니다. Summary S1을 실제 upstream worker에서 실행하려면 Runtime service factory에 권한 기반 data API와 모델 추출기를 추가하고, S1 입력/output의 등록 계약도 갱신해야 합니다. 그 전까지 S1은 `examples.run_integrated`의 합성 module call로 시연합니다.
+| 서비스 | 호출 형태 | 용도 |
+|---|---|---|
+| data_api | get(path) -> dict | 참조된 구조화 자료와 문서 조회 |
+| extractor | extract(documents, questions) -> dict | 문서 원문에서 질문별 사실과 인용 추출 |
+| input_observer | callback | 선택적인 입력 감사 정보 저장 |
 
-## 실행
+Host의 service factory가 필요한 구현을 만들어 AgentServices에 전달합니다. Summary의 endpoint 요청 형식과 자료 검증 규칙은 chain_agents/summary/data_contract.py 및 chain_agents/summary/site_data_api.py에 있습니다.
 
-```bash
-python -m examples.run all
-python -m examples.run_integrated
-```
+## 참조 Orchestrator에 연결
 
-두번째 예제는 세 Agent의 호출 모양을 한 파일에서 보여줍니다. 각 Agent에 별도 입력을 사용하며, Agent 출력 사이를 자동 변환하지 않습니다. 하나의 clinical pipeline이나 실제 모델 결과를 나타내지 않습니다.
+현재 참조 설정은 clinical_summary를 기존 context 경로로 호출합니다. S1을 연결할 때는 workflow의 S1 요청을 Summary 형식으로 전달하고, Runtime service factory에서 data_api와 extractor를 주입합니다. 반환된 items는 Runtime의 결과 저장·조회 경로에 연결합니다.
 
-## Upstream 사본 생성
+Screening과 tPA도 같은 Python 진입점을 사용합니다. Screening은 backend를, tPA는 요청 snapshot을 사용합니다. Agent별 입력과 결과를 Orchestrator의 workflow 계약에 맞춰 등록합니다.
 
-```bash
-python scripts/prepare_integration.py --upstream ../chain-orchestrator-v03 \
-  --output ../chain-integration-demo --synthetic-demo
-```
+## 합성 실행
 
-기존 scaffold는 v0.3 plugin modes를 별도 Orchestrator 사본에 등록합니다. Summary `s1` mode와 추가 services를 등록하지 않습니다.
+저장소 루트에서 실행합니다.
 
-## 실제 연동에 필요한 단계
+    python -m examples.run all
+    python -m examples.run_integrated
 
-1. 하이젠 REST API의 경로, 인증, 버전과 시점 의미를 확정합니다.
-2. Runtime worker에 권한이 제한된 `data_api`를 생성해 필요한 Agent에 주입합니다.
-3. Summary extractor와 Screening 모델 backend를 worker-local factory에서 생성·재사용합니다.
-4. Summary S1 요청을 workflow scope/snapshot으로 바꾸는 입력 adapter를 합의합니다.
-5. Agent별 result key를 workflow output, 저장 경로, UI query와 연결합니다.
-6. request ID, retry/timeout, audit, 저장 보존기간, notifier 담당을 정합니다.
-7. Registry file hashes를 다시 만들고 Local Engine 및 Temporal 경로를 검증합니다.
+run_integrated는 각 Agent를 합성 입력으로 호출해 연결 형태를 보여줍니다. Summary S1은 고정 합성 extractor를 사용합니다.
 
-실제 EMR/OCS, credentials, UI, notifier를 이 repo가 운영하지 않습니다.
+## 설정 사본 생성
+
+    python scripts/prepare_integration.py --upstream ../chain-orchestrator-v03 --output ../chain-integration-demo --synthetic-demo
+
+이 스크립트는 참조 Orchestrator의 별도 사본에 현재 v0.3 plugin 구성을 생성합니다. Summary S1을 사용하는 구성은 S1 요청과 서비스를 연결한 뒤 등록합니다.

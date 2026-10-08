@@ -7,7 +7,7 @@
 - `python -m examples.run_integrated`: Screening, Summary S1, tPA interim/final 호출 성공.
 - Summary S1 결과: `summary-s1-fields/v1`, 6개 합성 question items.
 - 예제는 고정 합성 backend/extractor를 사용했으며 실제 LLM·병원 API·Temporal 서비스로 시험하지 않았습니다.
-- upstream `AgentRuntime`에 Summary S1을 등록한 검증은 수행하지 않았습니다. 현재 request validator 및 services 주입 확장이 필요합니다.
+- Summary S1은 합성 모듈 예제로 확인했습니다. Orchestrator Runtime 연결은 이 실행 범위에 포함하지 않았습니다.
 
 아래는 이전 `main` starter 통합 작업의 기록이며 이번 `feature/agent-integration` 검증과 별도입니다.
 
