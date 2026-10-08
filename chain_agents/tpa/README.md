@@ -82,8 +82,8 @@ def invoke(request: dict, snapshot: dict, services) -> dict:
     ...
 ```
 
-입력은 v0.3 계약입니다. 전체 wire 검증은 upstream Runtime이 수행하고, tPA는 mode·Snapshot 연결·scope·자료 시각과 수치 등을 추가 확인합니다.
-관련 공통 계약은 [docs/CONTRACT.md](../../docs/CONTRACT.md)입니다.
+입력은 v0.3 형식입니다. 전체 wire 검증은 upstream Runtime이 수행하고, tPA는 mode·Snapshot 연결·scope·자료 시각과 수치 등을 추가 확인합니다.
+다른 Agent의 입력과 결과는 [docs/CONTRACT.md](../../docs/CONTRACT.md)에 정리되어 있습니다.
 
 ### request
 

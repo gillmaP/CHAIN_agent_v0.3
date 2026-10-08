@@ -22,11 +22,11 @@ from chain_agents.screening.agent import invoke
 result = invoke(request, snapshot, services)
 ```
 
-공식 형식은 세 Agent 공통입니다. v0.3 mode `screening`; `services.backend.select(request, snapshot)`가 필요합니다. 결과 key는 `screening_result`, `mock_only`, `basis`입니다. 신규 service 객체의 공통 속성은 [AgentServices](../services.py)와 [공통 계약](../../docs/CONTRACT.md)에 있습니다.
+기본 진입점은 다른 Agent와 같은 Python 함수 모양(`invoke(request, snapshot, services)`)으로 호출합니다. Screening은 `services.backend.select(...)`로 자료를 찾고 `screening_result`, `mock_only`, `basis`를 반환합니다. 입력과 결과 예시는 [Agent별 입력과 결과](../../docs/CONTRACT.md)를 참고하세요.
 
 ## 4. 입력과 반환
 
-입력 request/snapshot은 공통 v0.3 contract를 사용합니다. 이 Agent는 `document:DOC-...`, `lkw`, `glucose` 등 승인된 scope를 요구할 수 있습니다. v0.12 별도 입력 예시는 [v012_screening_request.json](../../examples/v012_screening_request.json)입니다.
+기본 호출 입력은 Orchestrator 예제의 v0.3 형식을 사용합니다. 이 Agent는 `document:DOC-...`, `lkw`, `glucose` 등 승인된 scope를 요구할 수 있습니다. v0.12 별도 입력 예시는 [v012_screening_request.json](../../examples/v012_screening_request.json)입니다.
 
 `invoke` domain result:
 

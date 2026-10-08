@@ -1,29 +1,70 @@
-# Agent 호출 계약
+# Agent별 입력과 결과
 
-## 공통 Python 진입점
+이 문서는 각 Agent에 전달하는 입력과 Agent가 돌려주는 결과를 설명합니다.
 
-    invoke(request, snapshot, services) -> dict
+## 기본 호출 모양
 
-- request는 실행 mode와 Agent별 작업 정보를 담습니다.
-- snapshot은 v0.3 mode가 사용하는 scoped facts입니다.
-- services는 Host가 준비한 capability를 전달하는 AgentServices 객체입니다.
-- 반환값은 Agent별 도메인 결과 dict이며, v0.3 결과 envelope는 Orchestrator Runtime이 구성합니다.
+```python
+invoke(request, snapshot, services) -> dict
+```
 
-## Agent 요청 경로
+- `request`: 실행할 작업과 필요한 입력
+- `snapshot`: 호출 시점에 전달되는 구조화 자료. 호출 방식에 따라 사용하지 않을 수 있습니다.
+- `services`: 자료 조회나 모델 실행처럼 Agent가 사용할 기능
+- 반환값: Agent별 업무 결과를 담은 Python 사전
 
-| Agent / mode | 입력 | 결과 |
+Orchestrator 실행 환경은 이 결과를 받아 저장하거나 다음 업무 단계에 전달합니다.
+
+## Agent별 요약
+
+| Agent와 호출 방식 | 입력 | 결과 |
 |---|---|---|
-| Screening / screening | 요청과 scoped snapshot | screening_result, basis |
-| Summary / s1 | episode·encounter, input_references, questions | summary-s1-fields/v1 |
-| Summary / context | scoped snapshot facts | structured_context, missing_information, cache |
-| tPA / interim, final | 요청과 scoped snapshot | evidence_package, assessment |
+| Screening / `screening` | 요청과 구조화 자료 | 선별 결과와 근거 |
+| Summary / `context` | 이미 정리된 구조화 자료 | `structured_context`, 누락 정보, cache |
+| Summary / `s1` | 환자·내원 정보, 자료 목록, 질문 | 질문별 답·근거인 `items`, `missing_information` |
+| tPA / `interim`, `final` | 요청과 구조화 자료 | 검토 항목과 assessment |
 
-## Summary S1
+## Summary S1 입력
 
-S1 요청은 trigger.state_enter=S1, episode_id, encounter_id, input_references, questions를 포함합니다. 모듈 호출에서는 mode=s1, snapshot=None으로 전달합니다.
+S1 요청에는 환자·내원 식별 정보, S1 단계가 시작되었다는 표시, 읽을 자료 목록, 답을 원하는 질문이 들어갑니다.
 
-질문마다 question, status, value, evidence, alternatives를 반환합니다. evidence에는 source_ref와 원문 quote를 담습니다. status와 질문별 value 규칙은 chain_agents/summary/CONTRACT.md에 정의되어 있습니다.
+```json
+{
+  "mode": "s1",
+  "patient_id": "PAT-example",
+  "encounter_id": "ENC-example",
+  "episode_id": "EP-example",
+  "trigger": {"state_enter": "S1"},
+  "input_references": ["document:NOTE-example@1"],
+  "questions": ["anticoagulant_use"]
+}
+```
 
-## context 호환 경로
+이 경로는 별도 snapshot 대신 요청의 자료 참조를 사용합니다. 자료 조회와 문서 추출 기능을 `services`로 전달합니다.
 
-context는 기존 v0.3 starter의 요청 방식입니다. Orchestrator가 이미 구성한 snapshot facts를 읽어 구조화된 context 결과를 돌려줍니다. 자료 참조를 조회하고 질문별 근거를 구성하는 S1 경로와는 별개의 호환 mode입니다.
+## Summary S1 결과
+
+질문마다 결과를 하나 반환합니다.
+
+```json
+{
+  "question": "anticoagulant_use",
+  "status": "documented",
+  "value": true,
+  "evidence": [
+    {
+      "source_ref": "document:NOTE-example@1",
+      "quote": "현재 항응고제 apixaban 5 mg bid를 복용 중이다"
+    }
+  ],
+  "alternatives": []
+}
+```
+
+질문 유형에 따라 `value`의 자료형은 다를 수 있습니다. 예를 들어 사용 여부는 참·거짓, 시간 정보는 시간 필드가 있는 객체입니다. 정보가 없거나 서로 다른 정보가 있는 경우는 `status`로 구분합니다. 자세한 규칙은 [Summary 출력 형식](../chain_agents/summary/CONTRACT.md)을 참고하세요.
+
+## 기존 Summary context 입력
+
+`context`는 처음 Orchestrator 예제에 있던 방식입니다. 요청에 범위가 있고, 그 범위의 구조화 자료가 `snapshot.facts`에 들어 있습니다. Summary는 받은 자료를 정리해 `structured_context`를 반환합니다.
+
+S1은 자료를 직접 조회해 질문별 결과를 만듭니다. 둘은 별개의 호출 방식이며 한 흐름의 두 단계가 아닙니다.

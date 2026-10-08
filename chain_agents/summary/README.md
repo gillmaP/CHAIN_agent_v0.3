@@ -1,52 +1,90 @@
 # Clinical Summary Agent
 
-Summary S1은 workflow의 S1 진입 시 지정된 자료를 읽고, 요청된 임상 질문에 대한 facts와 근거를 반환합니다.
+Summary Agent는 업무 흐름의 S1 단계에서 질문에 답할 자료를 모으고 정리합니다. 표처럼 구조화된 자료는 코드가 읽고, 진료기록 문서는 내부 LLM이 사실과 원문 인용을 찾습니다. 코드가 질문별 결과를 확인해 반환합니다.
 
-## 처리 흐름
+## 처리 순서
 
-1. 요청에서 episode, encounter, 자료 참조, 질문을 확인합니다.
-2. data_api로 활성 약물, 문제 목록, 최근 내원 기록, 문서 원문을 조회합니다.
-3. 코드가 구조화 자료를 처리하고 extractor가 문서 원문에서 사실과 인용을 추출합니다.
-4. 코드가 출처·상태·출력을 검증하고 결과를 반환합니다.
+1. 환자·내원 정보, 읽을 자료 목록, 질문을 확인합니다.
+2. 자료 조회 기능(`data_api`)으로 약물, 문제 목록, 최근 내원 정보와 문서를 가져옵니다.
+3. 구조화 자료는 코드가 처리하고 문서 원문은 추출기(`extractor`)가 분석합니다.
+4. 질문별 답과 근거를 확인해 결과를 반환합니다.
 
-## 실행
+## 가상 자료로 먼저 실행하기
 
 Python 3.11 이상, 저장소 루트에서 실행합니다.
 
-    python -m examples.summary_s1
+```bash
+python -m examples.summary_s1
+```
 
-이 예제는 합성 자료와 고정 extractor를 사용합니다. 모델 추론 예제는 사전 설치한 선택 의존성을 사용합니다.
+이 예제는 가상 자료와 고정된 추출 결과를 씁니다. 입출력 모양을 보여주며 LLM은 실행하지 않습니다.
 
-    python -m pip install -r chain_agents/summary/requirements-llm.txt
-    python -m examples.summary_s1 --model qwen35_9b --gpu 2 --model-dir /path/to/Qwen3.5-9B
+## 실제 로컬 LLM으로 실행하기
 
-모델 키, 장치 번호, 가중치 경로는 실행 환경에 맞게 지정합니다.
+모델 가중치가 저장된 경로와 사용할 GPU 번호를 지정합니다.
 
-## Orchestrator 호출
+```bash
+python -m examples.summary_s1 --model qwen35_9b --gpu 2 --model-dir /path/to/models/Qwen3.5-9B
+python -m examples.summary_s1 --model gemma4_12b_it --gpu 3 --model-dir /path/to/models/gemma-4-12B-it
+```
 
-    from chain_agents.summary.agent import invoke
-    from chain_agents.services import AgentServices
+`/path/to/...`를 실제 모델 경로로 바꿉니다. 실행 환경에는 PyTorch와 Transformers가 설치되어 있어야 합니다. 선택 설치 항목은 다음 파일에 있습니다.
 
-    request = {
-        "mode": "s1",
-        "patient_id": "PAT-example",
-        "encounter_id": "ENC-example",
-        "episode_id": "EP-example",
-        "trigger": {"state_enter": "S1"},
-        "input_references": ["document:NOTE-example@1"],
-        "questions": ["anticoagulant_use", "previous_stroke", "lkw_records"],
-    }
-    services = AgentServices(data_api=data_api, extractor=extractor)
-    result = invoke(request, None, services)
+```bash
+python -m pip install -r chain_agents/summary/requirements-llm.txt
+```
 
-data_api와 extractor는 Host에서 준비해 주입합니다. data_api는 get(path) -> dict, extractor는 extract(documents, questions) -> dict를 제공합니다. input_observer는 선택 서비스입니다.
+각 명령은 가상 S1 자료를 지정한 모델에 넣고 JSON 결과를 터미널에 출력합니다.
 
-## 입출력
+## Orchestrator에서 호출하는 위치
 
-요청에는 episode_id, encounter_id, trigger, input_references, questions가 포함됩니다. workflow trigger는 S1 진입을 나타냅니다. 자료 참조는 실제 조회 가능한 버전으로 지정합니다.
+Summary의 Python 진입점은 `chain_agents.summary.agent.invoke`입니다. Orchestrator 쪽 실행 환경에서 요청을 만들고 자료 조회·문서 추출 기능을 준비해 전달합니다.
 
-결과는 summary-s1-fields/v1 형식이며 items와 missing_information을 포함합니다. 각 item은 다음 구조를 사용합니다.
+```python
+from chain_agents.summary.agent import invoke
+from chain_agents.services import AgentServices
 
+request = {
+    "mode": "s1",
+    "patient_id": "PAT-example",
+    "encounter_id": "ENC-example",
+    "episode_id": "EP-example",
+    "trigger": {"state_enter": "S1"},
+    "input_references": ["document:NOTE-example@1"],
+    "questions": ["anticoagulant_use", "previous_stroke", "lkw_records"],
+}
+services = AgentServices(data_api=data_api, extractor=extractor)
+result = invoke(request, None, services)
+```
+
+- `request`: 환자·내원 정보, 읽을 자료, 답을 원하는 질문
+- `data_api`: 요청에 적힌 자료를 가져오는 기능
+- `extractor`: 문서 원문에서 질문별 사실과 인용을 찾는 기능
+- `result`: Summary가 확인한 질문별 답과 근거
+
+Agent 진입점은 Python 함수입니다. 실행 환경이 자료 조회와 모델 실행 기능을 준비해 Summary에 전달합니다.
+
+## 입력 예시
+
+```json
+{
+  "mode": "s1",
+  "patient_id": "PAT-example",
+  "encounter_id": "ENC-example",
+  "episode_id": "EP-example",
+  "trigger": {"state_enter": "S1"},
+  "input_references": ["document:NOTE-example@1"],
+  "questions": ["anticoagulant_use"]
+}
+```
+
+## 결과 형식
+
+요청한 질문마다 `items`에 하나의 결과가 들어갑니다. 질문 유형에 따라 `value`는 참·거짓, 문자열, 시간 정보처럼 달라질 수 있습니다.
+
+```json
+{
+  "items": [
     {
       "question": "anticoagulant_use",
       "status": "documented",
@@ -59,30 +97,46 @@ data_api와 extractor는 Host에서 준비해 주입합니다. data_api는 get(p
       ],
       "alternatives": []
     }
+  ],
+  "missing_information": []
+}
+```
 
-status, question별 value, 대안 값과 인용 규칙은 [CONTRACT.md](CONTRACT.md)에 정리했습니다.
-
-## 자료 조회와 모델
-
-Summary는 data_api.get(path) 인터페이스를 사용합니다. 개발용 endpoint 예제와 자료 검증 규칙은 data_contract.py와 site_data_api.py에 있습니다. Host는 같은 인터페이스를 제공하는 client를 주입합니다.
-
-문서 원문은 extractor로 전달됩니다. LLM prompt와 로컬 모델 로딩은 extractor.py와 local_model.py에 있습니다. 모델 실행 시 선택한 모델의 requirements를 설치하고, 가중치 경로를 실행 환경에 맞게 지정합니다.
-
-## context 호환 mode
-
-같은 모듈에는 v0.3 starter에서 이어진 context mode도 있습니다. 이미 만들어진 scoped snapshot facts를 읽어 structured_context, missing_information, cache를 반환합니다. 이는 S1과 별도의 요청 경로이며 S1 workflow 안에서 추가로 호출되는 단계가 아닙니다. 현재 프로젝트 Summary의 주 경로는 S1입니다.
-
-## 주요 파일
-
-| 파일 | 역할 |
+| 항목 | 뜻 |
 |---|---|
-| agent.py | 공통 invoke 진입점과 mode 분기 |
-| summary.py | S1 자료 처리와 근거 결합 |
-| contract.py | S1 요청·결과 검증 |
-| data_contract.py | 자료 종류와 조회 요청 정의 |
-| site_data_api.py | HTTP client 예제 |
-| extractor.py, local_model.py | 문서 추출과 로컬 모델 실행 |
+| `question` | 답을 만들 질문 이름 |
+| `status` | 자료에서 확인된 상태: `documented`, `not_stated`, `explicitly_unknown`, `conflicting`, `not_applicable` |
+| `value` | 질문에 대한 값. 상태에 따라 값이 없을 수 있고 질문 종류에 따라 자료형도 다릅니다. |
+| `evidence` | 값의 근거가 되는 원문 인용과 자료 위치 |
+| `alternatives` | 서로 다른 값이 함께 발견될 때 비교할 후보 |
+| `missing_information` | 답을 만들거나 확인하는 데 추가 자료가 필요한 내용 |
 
-테스트는 저장소 루트에서 실행합니다.
+질문별 값 규칙은 [Summary 출력 형식](CONTRACT.md)에 있습니다.
 
-    python -m unittest discover -s tests -v
+## 코드 위치
+
+- 입력 자료의 형식과 가상 조회기: `data_contract.py`
+- 조회 기능을 연결하는 코드: `site_data_api.py`
+- 문서 추출기: `extractor.py`
+- 로컬 모델 실행: `local_model.py`
+- Summary 요청 처리: `agent.py`
+
+## context 방식은 무엇인가요?
+
+`context`는 처음 Orchestrator 예제에 있던 기존 방식입니다. 이미 묶여 전달된 구조화 자료를 정리해 `structured_context`를 돌려줍니다.
+
+S1은 자료 목록과 질문을 받고 필요한 문서와 자료를 조회해 질문별 답을 만듭니다. 둘은 입력과 결과가 다른 별개의 호출 방식입니다. 현재 중심은 S1이고 context는 기존 예제를 위해 남아 있습니다.
+
+## 실행 확인
+
+2026-10-08 실제 로컬 GPU에서 확인했습니다.
+
+- Qwen3.5-9B, GPU 2: 예제 질문 6개를 반환하고 필수 출력 검사를 통과했습니다.
+- Gemma4-12B-it, GPU 3: 같은 질문 6개를 반환하고 필수 출력 검사를 통과했습니다.
+- 두 결과 모두 `missing_information`은 비어 있었습니다.
+
+이는 가상 예제 한 건을 실제 모델로 실행한 확인입니다. 전체 테스트 명령은 저장소 루트에서 실행합니다.
+
+```bash
+python -m unittest discover -s tests -v
+```

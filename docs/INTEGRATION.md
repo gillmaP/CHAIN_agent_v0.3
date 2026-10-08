@@ -1,49 +1,57 @@
-# Orchestrator 연결
+# Orchestrator에서 Agent를 부르는 방법
 
-## 공통 호출
+## 전체 흐름
 
-각 Agent는 다음 형태로 호출됩니다.
+Orchestrator는 업무 순서를 관리하는 별도 프로그램입니다. 필요한 시점에 Agent를 부르고, Agent의 결과를 받아 다음 단계로 넘깁니다.
 
-    invoke(request, snapshot, services) -> dict
+각 Agent는 이 저장소 안의 Python 모듈입니다. 실행 환경이 요청, 입력 자료, 사용할 기능을 준비한 다음 Agent 함수를 호출합니다.
 
-Agent는 요청된 작업을 처리해 도메인 결과를 반환합니다. Orchestrator Runtime은 실행 envelope와 workflow 상태를 관리합니다.
+## Agent를 부르는 Python 함수
 
-## Summary 호출 경로
+```python
+invoke(request, snapshot, services) -> dict
+```
 
-| 경로 | 입력 | 결과 | 역할 |
+| 이름 | 쉬운 설명 |
+|---|---|
+| `request` | 이번 작업에서 무엇을 할지 적은 요청 |
+| `snapshot` | 호출 시점에 전달하는 구조화 자료 묶음. 사용하지 않는 경로에서는 `None`일 수 있습니다. |
+| `services` | 자료 조회, 모델 실행 등 Agent가 사용할 기능 |
+| 반환값 | Agent가 만든 Python 결과. Orchestrator 쪽에서 저장하거나 다음 단계에 전달합니다. |
+
+## Summary의 두 가지 호출 방식
+
+Summary에 두 경로가 있는 것은 서로 다른 입력 방식이 필요하기 때문입니다. 한 작업에서 둘 다 연달아 실행하지 않습니다.
+
+| 경로 | Agent가 받는 것 | Agent가 돌려주는 것 | 주 용도 |
 |---|---|---|---|
-| S1 | episode/encounter, 자료 참조, 질문 | 질문별 items, missing information | 이 프로젝트에서 구현하는 Summary 흐름 |
-| context | v0.3 scoped snapshot facts | structured_context, missing_information, cache | 기존 starter 계약과의 호환 경로 |
+| S1 | 환자·내원 정보, 읽을 자료 목록, 질문 | 질문별 `items`, `missing_information` | 필요한 자료를 조회해 질문에 답함 |
+| context | Orchestrator가 미리 정리한 snapshot 자료 | `structured_context`, `missing_information`, `cache` | 처음 예제에 있던 기존 요약 |
 
-context는 원래 v0.3 starter에 있던 snapshot 요약 경로입니다. S1과는 입력·결과가 다르며, S1 workflow의 두 번째 요약 단계가 아닙니다.
+S1에서 쓰는 기능은 두 가지입니다.
 
-## Summary 서비스
+- `data_api.get(path)`: 요청에 포함된 구조화 자료나 문서를 가져옵니다.
+- `extractor.extract(documents, questions)`: 문서 원문에서 질문별 사실과 인용을 찾습니다.
 
-| 서비스 | 호출 형태 | 용도 |
-|---|---|---|
-| data_api | get(path) -> dict | 참조된 구조화 자료와 문서 조회 |
-| extractor | extract(documents, questions) -> dict | 문서 원문에서 질문별 사실과 인용 추출 |
-| input_observer | callback | 선택적인 입력 감사 정보 저장 |
+실행 환경은 이 기능들을 `AgentServices`에 넣어 Summary 진입점에 전달합니다. 연결 코드는 `chain_agents/services.py`, `chain_agents/summary/agent.py`, `chain_agents/summary/site_data_api.py`, `chain_agents/summary/extractor.py`에 있습니다.
 
-Host의 service factory가 필요한 구현을 만들어 AgentServices에 전달합니다. Summary의 endpoint 요청 형식과 자료 검증 규칙은 chain_agents/summary/data_contract.py 및 chain_agents/summary/site_data_api.py에 있습니다.
+## Orchestrator 예제와 Summary S1
 
-## 참조 Orchestrator에 연결
+참조 Orchestrator 예제는 기존 context 호출을 보여줍니다. 이 저장소에는 질문별 요약을 처리하는 S1 호출도 구현되어 있습니다. S1을 Orchestrator 실행 흐름에 연결할 때 Orchestrator 쪽에서 S1 요청을 만들고, 실행 환경에서 `data_api`와 `extractor`를 준비해 Summary에 전달합니다.
 
-현재 참조 설정은 clinical_summary를 기존 context 경로로 호출합니다. S1을 연결할 때는 workflow의 S1 요청을 Summary 형식으로 전달하고, Runtime service factory에서 data_api와 extractor를 주입합니다. 반환된 items는 Runtime의 결과 저장·조회 경로에 연결합니다.
+가상 입력으로 실행하는 예제는 저장소 루트에서 확인할 수 있습니다.
 
-Screening과 tPA도 같은 Python 진입점을 사용합니다. Screening은 backend를, tPA는 요청 snapshot을 사용합니다. Agent별 입력과 결과를 Orchestrator의 workflow 계약에 맞춰 등록합니다.
+```bash
+python -m examples.run all
+python -m examples.run_integrated
+python -m examples.summary_s1
+```
 
-## 합성 실행
+`examples.summary_s1`은 고정된 추출 결과를 씁니다. 실제 모델을 시험하려면 [Summary 실행 안내](../chain_agents/summary/README.md)의 GPU 명령을 실행합니다.
 
-저장소 루트에서 실행합니다.
+## v0.3과 v0.12 표기
 
-    python -m examples.run all
-    python -m examples.run_integrated
+- **v0.3**: 별도 Orchestrator 저장소의 Agent 요청과 호출 예제에 붙은 표기
+- **Mock v0.12**: 공유받은 Mock PDF와 코드 자료 묶음에 붙은 표기
 
-run_integrated는 각 Agent를 합성 입력으로 호출해 연결 형태를 보여줍니다. Summary S1은 고정 합성 extractor를 사용합니다.
-
-## 설정 사본 생성
-
-    python scripts/prepare_integration.py --upstream ../chain-orchestrator-v03 --output ../chain-integration-demo --synthetic-demo
-
-이 스크립트는 참조 Orchestrator의 별도 사본에 현재 v0.3 plugin 구성을 생성합니다. Summary S1을 사용하는 구성은 S1 요청과 서비스를 연결한 뒤 등록합니다.
+두 표기는 서로 다른 참고 자료의 버전입니다. 이 저장소의 Agent나 LLM 버전은 아닙니다. 세 Agent별 입력과 결과 예시는 [Agent별 입력과 결과](CONTRACT.md)에 있습니다.
