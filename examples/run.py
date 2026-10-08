@@ -2,14 +2,16 @@
 import argparse
 import json
 from chain_agents.screening.agent import invoke as screening
-from chain_agents.summary.agent import invoke as summary
 from chain_agents.tpa.agent import invoke as tpa
+from .summary import run_fixture
 from .support import sample, services, SyntheticBackend
 
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument('agent', nargs='?', default='all', choices=['all','screening','summary','tpa'])
     args=parser.parse_args()
-    calls=[('screening','screening',screening),('summary','context',summary),('tpa','interim',tpa),('tpa','final',tpa)]
+    if args.agent in ('all', 'summary'):
+        print(json.dumps({'agent': 'clinical_summary', 'result': run_fixture()}, ensure_ascii=False, indent=2))
+    calls=[('screening','screening',screening),('tpa','interim',tpa),('tpa','final',tpa)]
     for team,mode,fn in calls:
         if args.agent not in ('all',team): continue
         request,snapshot=sample(mode)

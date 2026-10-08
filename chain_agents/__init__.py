@@ -1,1 +1,1 @@
-"""Independent CHAIN v0.3 Agent plugins. No orchestration or clinical model."""
+"""Three independent CHAIN Agent modules; workflow orchestration lives outside this package."""

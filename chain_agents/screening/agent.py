@@ -4,5 +4,5 @@ from .logic import run
 
 
 def invoke(request, snapshot, services):
-    inputs(request, snapshot, {'screening'})
+    inputs(request, snapshot)
     return run(request, snapshot, services)

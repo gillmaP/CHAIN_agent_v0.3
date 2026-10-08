@@ -1,0 +1,44 @@
+{
+  "case_id": "synthetic_stroke_screening_case_001",
+  "synthetic_only": true,
+  "documents": [
+    {
+      "document_id": "DOC-2610060412",
+      "version": 1,
+      "document_type": "ED_INITIAL_NOTE",
+      "saved_time": "2026-10-06T15:19:48+09:00",
+      "text": "[응급실 초진기록]  2026-10-06  ER\n■ 내원경로\n119 구급차 이송 (직접 내원)\n■ 주호소\n* 주증상  Rt. side weakness / Speech disturbance (aphasia)\n  발생일시 : 2026-10-06 14시 20분 (발견 시각)\n■ 현병력\n68세 여자 환자로 고혈압, 당뇨, 고지혈증으로 본원 내분비내과 f/u 중인 분으로, 금일 13:35경 딸과 전화통화 시까지 특이증상 없었다고 함. 14:20경 딸이 집에 방문하였을 때 거실에 앉아 있으면서 말을 제대로 못하고 우측 팔다리를 움직이지 못하는 상태로 발견되어 119 신고 후 본원 응급실 내원함.\n119 도착(14:31) 당시 V/S 168/92-96-18-36.5, BST 156 mg/dL. 의식 alert하나 말 못하고 지시 따르기 일부 가능. 우측 상지 거상 불가, 우측 하지 drift 있음.\n두통, 구토, 경련, 외상 부인(보호자 진술). 최근 수술력, 출혈력 없음(보호자 진술).\n■ 과거력\nHTN (+, 약 10년, 본원 f/u), DM (+, 약 8년), Dyslipidemia (+)\nStroke/TIA (-), Cardiac dz (-), Op Hx (-), Seizure (-)\n<복용약물> (본원 처방, 최근 조제 2026-09-22)\n암로디핀 5mg qd, 메트포르민 500mg bid, 아토르바스타틴 20mg qd, 아스피린 100mg qd\n항응고제 복용 (-) : 보호자 확인 및 본원 처방내역상 없음\n■ 계통문진\n실어증으로 확인 제한, 보호자 문진으로 대체\n■ 신체검진\n* 기본신체사항 및 활력징후\nBP 172/94  HR 88  RR 18  BT 36.6  SpO2 97% (RA)\n의식 alert, GCS E4 V2 M6\n동공 3/3 mm, 대광반사 정상\nRt. facial palsy (central type)\nMotor: Rt. U/E G2, Rt. L/E G3, Lt. side G5\nGlobal aphasia (comprehension 일부 보존), dysarthria\nBabinski: Rt (+), Lt (-)\n■ 진단명\nAcute ischemic stroke, suspected (Lt. MCA territory)\n■ 진료계획\n# Brain CT (non-contrast) emergent\n# Stroke lab (CBC, PT/aPTT, chemistry), 12-lead ECG\n# NR 당직 협진 → IV thrombolysis 적응증 평가 예정"
+    },
+    {
+      "document_id": "DOC-2610060403",
+      "version": 2,
+      "document_type": "ED_TRIAGE_NOTE",
+      "saved_time": "2026-10-06T15:17:10+09:00",
+      "text": "[응급 초기평가 - 간호]  2026-10-06  ER\n내원시각 15:12  내원경로 119 구급차  동반 보호자 딸\n주호소 우측 팔다리 힘없음, 말 어눌함 (보호자 진술)\n발생시각 14:20 발견 / 마지막 정상 확인 13:35 (딸과 통화)\n의식 alert (지시수행 일부), 언어 표현 어려움\nV/S 15:14  BP 172/94  HR 88  RR 18  BT 36.6  SpO2 97% (RA)\nBST 158 mg/dL (15:14, POCT)\nKTAS 2 (급성 신경학적 결손)\nFAST: Face(+) Arm(+) Speech(+)\n낙상위험 高, 흡인위험 — NPO 유지\n15:16  체중 67 kg (침상체중계 측정), 신장 158 cm (보호자 진술)\n15:16  18G IV line Lt. forearm 확보, 채혈 (CBC, PT/aPTT, chem) 시행 → 검사실 전송\n15:17  12-lead ECG 시행 → 판독 대기"
+    }
+  ],
+  "structured_facts": {
+    "age": 68,
+    "sex": "F",
+    "arrival_time": "2026-10-06T15:12:41+09:00",
+    "arrival_mode": "EMS_119",
+    "triage_level": "KTAS-2",
+    "vital_signs": {
+      "sbp": 172,
+      "dbp": 94,
+      "hr": 88,
+      "rr": 18,
+      "bt": 36.6,
+      "spo2": 97,
+      "measured_time": "2026-10-06T15:14:05+09:00"
+    },
+    "poct_glucose_mg_dl": 158,
+    "problem_list": [
+      "I10",
+      "E11.9",
+      "E78.5"
+    ],
+    "seizure_history": "NONE_DOCUMENTED",
+    "preexisting_hemiparesis": "NONE_DOCUMENTED"
+  }
+}

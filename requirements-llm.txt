@@ -1,0 +1,10 @@
+# Shared local inference dependencies for the Summary and Screening agents.
+# Install a CUDA-enabled PyTorch build that matches the target host separately.
+# This package set was verified with Python 3.11 and PyTorch 2.6.0+cu124.
+transformers==5.19.0
+accelerate==1.13.0
+huggingface_hub==1.33.0
+safetensors==0.8.0
+tokenizers==0.23.2
+Pillow==10.2.0
+protobuf==5.29.2

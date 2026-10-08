@@ -9,9 +9,9 @@ def canonical_hash(value):
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
     return 'sha256:' + hashlib.sha256(raw).hexdigest()
 
-def inputs(request, snapshot, modes):
+def inputs(request, snapshot, modes=None):
     """Check plugin boundary and return isolated facts; no mutation of inputs."""
-    if request.get('mode') not in modes:
+    if modes is not None and request.get('mode') not in modes:
         raise ValueError('Unsupported Agent mode')
     if request.get('input_snapshot_id') != snapshot.get('snapshot_id'):
         raise ValueError('Snapshot binding mismatch')

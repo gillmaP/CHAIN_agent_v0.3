@@ -1,0 +1,71 @@
+{
+  "screening_result": "POSITIVE",
+  "evidence": [
+    {
+      "code": "acute_onset",
+      "status": "present",
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "13:35경 딸과 전화통화 시까지 특이증상 없었다고 함"
+    },
+    {
+      "code": "focal_weakness",
+      "status": "present",
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Motor: Rt. U/E G2, Rt. L/E G3, Lt. side G5"
+    },
+    {
+      "code": "language_or_speech_deficit",
+      "status": "present",
+      "source_ref": "document:DOC-2610060412@1",
+      "quote": "Global aphasia (comprehension 일부 보존), dysarthria"
+    },
+    {
+      "code": "fast_positive",
+      "status": "present",
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "FAST: Face(+) Arm(+) Speech(+)"
+    },
+    {
+      "code": "lkw",
+      "status": "present",
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "마지막 정상 확인 13:35"
+    },
+    {
+      "code": "symptom_discovery",
+      "status": "present",
+      "source_ref": "document:DOC-2610060403@2",
+      "quote": "발생시각 14:20 발견"
+    }
+  ],
+  "rule_trace": [
+    {
+      "rule": "R1_ACUTE_ONSET",
+      "satisfied": true,
+      "basis": "document-grounded acute_onset=present"
+    },
+    {
+      "rule": "R2_FOCAL_NEURO_DEFICIT",
+      "satisfied": true,
+      "basis": [
+        "fast_positive",
+        "focal_weakness",
+        "language_or_speech_deficit"
+      ]
+    },
+    {
+      "rule": "R3_NO_CONTRADICTION",
+      "satisfied": true,
+      "basis": []
+    }
+  ],
+  "missing_information": [],
+  "review_required": false,
+  "model_info": {
+    "model_key": "synthetic-output-no-llm",
+    "model_revision": "none",
+    "prompt_version": "stroke-screening-evidence-v0.1"
+  },
+  "prototype_only": true,
+  "disclaimer": "Screening is triage support, not a diagnosis or treatment decision."
+}
