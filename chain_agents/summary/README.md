@@ -23,18 +23,17 @@ python -m examples.summary_s1
 
 ## 2. Orchestrator 호출
 
-신규 S1 요약은 명시적 진입점 `invoke_s1`으로 호출합니다.
+S1 요약도 공통 `invoke(request, snapshot, services)`로 호출합니다. `invoke_s1`은 편의를 위한 wrapper입니다.
 
 ```python
-from chain_agents.summary.agent import invoke_s1
+from chain_agents.summary.agent import invoke
+from chain_agents.services import AgentServices
 
 # Runtime이 요청, 읽기 전용 자료 클라이언트, 재사용할 추출기를 준비합니다.
-result = invoke_s1(
-    request,
-    data_api=data_api,
-    extractor=extractor,
-    input_observer=save_input_audit,  # 선택 콜백. 생략 가능
-)
+request = {**request, "mode": "s1"}
+services = AgentServices(data_api=data_api, extractor=extractor,
+                          input_observer=save_input_audit)  # observer는 선택
+result = invoke(request, None, services)
 # result를 Runtime의 결과 저장·UI 조회 경로에 연결합니다.
 ```
 
@@ -44,11 +43,12 @@ result = invoke_s1(
 | `extractor` | `extract(documents, questions) -> dict`. 문서가 있을 때 필수 |
 | `input_observer` | 추론 전 입력·감사 정보와 조회 실패 시 확보 범위를 받는 선택 콜백 |
 
-공통 `invoke(request, snapshot, services) -> dict`도 유지합니다.
-`input_references`가 있는 요청에는 `snapshot=None`과 `services.summary_data_api`,
-`services.summary_extractor`, 선택적인 `services.summary_input_observer`를 전달합니다.
+v0.3 context 요청은 공통 `invoke(request, snapshot, services) -> dict` 경로로 전달합니다.
+S1 reference request는 `mode=s1`, `snapshot=None`으로 전달하고 `services.data_api`,
+`services.extractor`, 선택적인 `services.input_observer`를 주입합니다. `invoke_s1` wrapper는 같은
+공통 진입점을 사용합니다.
 
-**기존 v0.3 context 경로는 별도입니다.** `input_references`가 없는 요청은 snapshot facts를 보존하고
+**v0.3 context 경로는 별도 mode입니다.** `input_references`가 없는 요청은 snapshot facts를 보존하고
 `structured_context`, `missing_information`, `cache`를 반환합니다. 신규 S1의 `items`를
 `structured_context`에 넣지 않습니다. S1 결과를 공유 orchestrator에 연결하려면 출력 계약을 합의해야 합니다.
 
@@ -134,6 +134,6 @@ Runtime에서 실행 ID, 성공/실패 envelope, 재시도, 결과 저장·UI �
 독립 HTTP/SQLite 서비스와 대규모 실험·HTML 생성 도구는 통합 패키지에서 제외하고 별도 보관했습니다.
 EMR/OCS 직접 연결과 notifier는 구현하지 않습니다.
 
-기존 테스트는 `tests/test_summary.py`, S1 계약 테스트는 `tests/test_summary_s1.py`에 있습니다.
+기존 테스트는 `tests/test_summary.py`, S1 계약 테스트는 `tests/test_summary_s1.py`와 `tests/test_summary_module.py`에 있습니다.
 테스트 명령은 `python -m unittest discover -s tests -v`입니다.
 이 프로토타입과 합성 예제만으로 임상 성능이나 전체 Orchestrator 통합 완료를 주장하지 않습니다.

@@ -1,61 +1,45 @@
-# 오케스트레이터 연결
+# Orchestrator 연결과 통합 예제
 
-## 설치 구조
+## 현재 v0.3 plugin 경로
 
-upstream Registry는 entrypoint의 실제 파일이 **프로젝트 root 내부**에 있어야 한다고 검사합니다. 외부 pip 패키지를 설치하는 것만으로 연결되지 않습니다. 이 starter의 `chain_agents/`를 upstream 배포 root 안에 포함해야 합니다. `prepare_integration.py`는 이 작업을 별도 사본에서 수행합니다.
+| Alias | Entrypoint | 현재 모드 | 서비스 |
+|---|---|---|---|
+| `stroke_screening` | `chain_agents.screening.agent:invoke` | `screening` | mock/local backend |
+| `clinical_summary` | `chain_agents.summary.agent:invoke` | `context` | cache |
+| `tpa_decision_support` | `chain_agents.tpa.agent:invoke` | `interim`, `final` | 공통 service object |
 
-| alias | entrypoint | backend |
-|---|---|---|
-| stroke_screening | `chain_agents.screening.agent:invoke` | fixture |
-| clinical_summary | `chain_agents.summary.agent:invoke` | structured |
-| tpa_decision_support | `chain_agents.tpa.agent:invoke` | structured |
+Orchestrator Runtime은 v0.3 request/snapshot을 검증하고 `invoke(request, snapshot, services)`를 호출한 뒤 도메인 결과를 공통 envelope로 감쌉니다. Screening `invoke_v012`는 별도 Mock v0.12 adapter입니다.
 
-각 manifest는 공통 파일과 해당 팀 폴더의 Python 파일 hash를 포함합니다. Screening은 합성 fixture 파일도 포함합니다. 공유 helper를 추가하거나 모델 파일/프롬프트에 의존하면 해당 파일을 manifest에 추가해야 합니다. 해시를 맞추는 일과 실제 승인 절차는 별개입니다.
+## AgentServices extension point
 
-## 합성 데모 사본 생성
+이 repo의 `chain_agents.services.AgentServices`는 worker-local `cache`, `backend`, `data_api`, `extractor`, `input_observer`를 전달합니다. 그러나 확인한 upstream Runtime은 `cache`와 선택적인 fixture `backend`만 생성합니다. Summary S1을 실제 upstream worker에서 실행하려면 Runtime service factory에 권한 기반 data API와 모델 추출기를 추가하고, S1 입력/output의 등록 계약도 갱신해야 합니다. 그 전까지 S1은 `examples.run_integrated`의 합성 module call로 시연합니다.
 
-starter 루트에서:
+## 실행
+
+```bash
+python -m examples.run all
+python -m examples.run_integrated
+```
+
+두번째 예제는 세 Agent의 호출 모양을 한 파일에서 보여줍니다. 각 Agent에 별도 입력을 사용하며, Agent 출력 사이를 자동 변환하지 않습니다. 하나의 clinical pipeline이나 실제 모델 결과를 나타내지 않습니다.
+
+## Upstream 사본 생성
 
 ```bash
 python scripts/prepare_integration.py --upstream ../chain-orchestrator-v03 \
   --output ../chain-integration-demo --synthetic-demo
 ```
 
-- 원본 checkout과 기존 출력 폴더를 덮어쓰지 않습니다.
-- 새 Agent 버전 `0.1.0-starter`, 새 구현 ID `starter-screening/summary/tpa`를 사용합니다.
-- 기존 fixture 파일은 변경하지 않습니다. `starter_fixtures/`에 사본을 만들고 해당 사본의 agent_version만 바꿉니다.
-- 새 사본의 Catalog/Registry/Policy만 연결합니다. Workflow의 임상 분기는 그대로입니다.
-- `--synthetic-demo`가 없으면 PENDING 초안이므로 다음 로딩은 승인 오류로 차단되는 것이 정상입니다.
+기존 scaffold는 v0.3 plugin modes를 별도 Orchestrator 사본에 등록합니다. Summary `s1` mode와 추가 services를 등록하지 않습니다.
 
-## 설정 검증
+## 실제 연동에 필요한 단계
 
-새 통합 사본의 root에서:
+1. 하이젠 REST API의 경로, 인증, 버전과 시점 의미를 확정합니다.
+2. Runtime worker에 권한이 제한된 `data_api`를 생성해 필요한 Agent에 주입합니다.
+3. Summary extractor와 Screening 모델 backend를 worker-local factory에서 생성·재사용합니다.
+4. Summary S1 요청을 workflow scope/snapshot으로 바꾸는 입력 adapter를 합의합니다.
+5. Agent별 result key를 workflow output, 저장 경로, UI query와 연결합니다.
+6. request ID, retry/timeout, audit, 저장 보존기간, notifier 담당을 정합니다.
+7. Registry file hashes를 다시 만들고 Local Engine 및 Temporal 경로를 검증합니다.
 
-```bash
-python - <<'PY'
-from chain_demo.orchestration_config import load_orchestration_bundle
-from chain_demo.agents.runtime import AgentRuntime
-configuration = load_orchestration_bundle()
-AgentRuntime(configuration['agents'])
-print('CONFIGURATION_OK')
-PY
-```
-
-## 로컬 엔진 전체 데모
-
-upstream requirements를 설치한 환경에서 실행합니다. `--backend local`도 Temporal SDK를 import하지만 별도 Temporal 서버는 필요 없습니다.
-
-```bash
-python -m demo --backend local --test-mode --hitl recorded \
-  --recorded demo/scenarios/recorded_hitl.json \
-  --expected demo/scenarios/expected.json \
-  --run-timeout 180 --output-dir output/starter-check-01
-```
-
-`outcome.json`에서 실행 결과를 확인합니다. 매번 새 output 경로를 사용하세요. 테스트 결과는 [VALIDATION.md](VALIDATION.md)에 기록합니다.
-
-Temporal 서버를 사용하는 테스트와 실제 병원 시스템 연동은 별도입니다. Local Engine 성공을 Temporal History Replay 성공으로 표현하지 않습니다.
-
-## 실제 팀 구현으로 교체
-
-`logic.py`를 구현한 다음 해당 팀의 backend/outputs/version을 조율합니다. Screening이 더 이상 fixture를 사용하지 않으면 backend를 structured로 변경하고 모델 client를 팀 모듈에서 호출합니다. 새 결과 key가 생기면 Workflow outputs와 결과 소비 코드를 같이 변경합니다. 변경한 코드/프롬프트/helper가 설치 manifest에 포함되는지 확인하고 Registry/Policy 승인을 받습니다.
+실제 EMR/OCS, credentials, UI, notifier를 이 repo가 운영하지 않습니다.

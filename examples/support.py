@@ -1,7 +1,7 @@
 """Local stand-ins for the two injected services; no Temporal required."""
 import copy
 from threading import RLock
-from types import SimpleNamespace
+from chain_agents.services import AgentServices
 from chain_agents.common import canonical_hash
 
 class MemoryCache:
@@ -22,8 +22,8 @@ class SyntheticBackend:
             raise ValueError('Synthetic fixture input mismatch')
         return copy.deepcopy(self.output)
 
-def services(backend=None):
-    return SimpleNamespace(cache=MemoryCache(), backend=backend)
+def services(backend=None, *, data_api=None, extractor=None, input_observer=None):
+    return AgentServices(cache=MemoryCache(), backend=backend, data_api=data_api, extractor=extractor, input_observer=input_observer)
 
 def sample(mode='context'):
     timestamp = '2026-10-06T09:00:00+09:00'

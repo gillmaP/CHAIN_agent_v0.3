@@ -1,54 +1,44 @@
-# v0.3 연결 계약
+# Agent 호출 및 입출력 계약
 
-참조: [upstream README §6](https://github.com/donggunseo/chain-orchestrator-v03/tree/00e5bf6c96b61a1a104af249b86a08d682106332), `chain_demo/contracts.py`, `chain_demo/agents/runtime.py`, `config/workflow_v03.yaml`.
+## 공통 Python boundary
 
-## 입력
-
-`request`에는 `contract_schema`, `request_id`, `agent_id`, `agent_version`, `manifest_hash`, `mode`, `input_snapshot_id`, `scope`, `dependencies`, `evaluated_at`이 있습니다. 환자 ID가 별도 최상위 필드로 주어지지 않습니다.
-
-`snapshot`에는 `contract_schema=chain-context/v0.3`, `snapshot_id`, `known_at`, `facts`가 있습니다. `facts` key 집합은 request.scope와 같습니다.
-
-```json
-{
-  "value": 68,
-  "status": "AVAILABLE",
-  "source_ref": {
-    "system": "CHAIN_INITIAL",
-    "record_id": "TEST-EPISODE",
-    "version": 1,
-    "field": "age"
-  },
-  "source_time": "2026-10-06T09:00:00+09:00",
-  "known_at": "2026-10-06T09:00:00+09:00"
-}
+```python
+def invoke(request, snapshot, services) -> dict:
+    ...
 ```
 
-선택 Fact 필드: `unit`, `confirmation_status`, `dependencies`. false는 명시적 값이고 null은 미확보입니다. NO_EVIDENCE가 임상적으로 확정 음성인 것은 아닙니다. 현재 tPA baseline의 STRUCTURED_MOCK_ONLY는 자료 포장 상태일 뿐 적합성 판정이 아닙니다.
+- `request`: mode와 agent별 작업·대상·범위.
+- `snapshot`: 승인된 scoped context. v0.3 mode에서는 필수, 현재 Summary `s1` module call에서는 `None`.
+- `services`: `chain_agents.services.AgentServices` — `cache`, `backend`, `data_api`, `extractor`, `input_observer`.
+- 반환: 도메인 결과 dict. v0.3 공통 envelope는 Orchestrator Runtime이 만듭니다.
+- 잘못된 입력·출처·추출은 예외로 실패합니다. 임상 부정 결과로 바꾸지 않습니다.
 
-기본 scope:
+이 services 객체는 프로세스 안에서 capability를 전달하는 작은 Python 컨테이너입니다. 자체 HTTP server·database·credential lookup이 아닙니다. Host가 실제 clients/model을 준비해 필요한 항목만 주입합니다.
 
-- Screening: `document:DOC-2610060412`, `lkw`, `glucose`
-- Summary: 호출자가 요청한 scope. 기본 예시는 age; 엔진의 ensure_context에서도 사용됨.
-- tPA: `lkw`, `ncct_completed`, `ncct_order_id`, `ct_order_id`, `platelet_count`, `inr`, `anticoagulant`, `weight_kg`, `nihss`, `sbp`, `dbp`, `glucose`, `age`
+## Orchestrator v0.3 contract
 
-Screening의 문서 ID는 데모용입니다. 실제 환자의 문서 선택 규약은 upstream 팀과 정해야 합니다. tPA scope에 없는 수술/출혈/약물 마지막 복용시각 등을 임의 조회하거나 추정하지 않습니다.
+표준 request는 `contract_schema`, `request_id`, `agent_id`, `agent_version`, `manifest_hash`, `mode`, `input_snapshot_id`, `scope`, `dependencies`, `evaluated_at`을 받습니다. Snapshot은 `contract_schema`, `snapshot_id`, `known_at`, `facts`입니다. `facts` key 집합은 `request.scope`와 같아야 합니다.
 
-## 책임 분리
+Runtime은 Agent의 domain dict를 `chain-agent-result/v0.3` envelope의 `result`에 담아 `SUCCESS/FAILED`를 관리합니다.
 
-| 계층 | 책임 |
+| Agent / v0.3 mode | Domain result keys |
 |---|---|
-| Orchestrator | 호출 시점, scope, 상태전이, HITL, result 수락 |
-| AgentRuntime | 입력/등록/파일 hash 검증, 함수 호출, SUCCESS/FAILED envelope |
-| 각 팀 Agent | 주어진 입력의 의미를 해석하고 도메인 결과 검증·반환 |
-| services | Worker cache와 선택적 fixture backend |
+| Screening / `screening` | `screening_result`, `mock_only`, `basis` |
+| Summary / `context` | `structured_context`, `missing_information`, `cache` |
+| tPA / `interim`, `final` | `mode`, `evidence_package`, `assessment`, `mock_only` |
 
-`services.api_client` 또는 `services.llm`은 현재 upstream에 없습니다. 모델 client를 쓰려면 팀 모듈에서 구성하거나 주입 계약을 추가해야 합니다. 비동기 함수로 바로 바꾸면 현재 Runtime 호출 방식과 맞지 않습니다. 외부 SDK 호출은 동기 `invoke` 내부/Activity 경계에 둡니다.
+## Summary reference-based S1
 
-## 현재 버전에서 특별히 합의할 항목
+모듈 예제는 환자·내원·episode ID, `trigger.state_enter=S1`, `input_references`, 고정 `questions`를 받고 `mode=s1`로 호출합니다. 반환은 `summary-s1-fields/v1`의 `items`입니다. 항목마다 `question`, `status`, `value`, `evidence`, `alternatives`를 포함합니다.
 
-1. Summary의 NLP 결과 저장 경로: 현재 context passthrough equality 제약을 유지할지 별도 도메인 출력으로 확장할지.
-2. 실제 모델용 출력 key와 mock_only 제거, enum 및 Workflow 분기.
-3. 에피소드별 문서 scope와 추가 의료 Fact 이름.
-4. 모델 실패·timeout·미결정 결과 처리와 버전 고정.
+이것은 v0.3 request/snapshot 계약과 별도입니다. 현재 upstream request validator는 추가 request fields를 거부하고 Runtime은 snapshot을 항상 넘깁니다. upstream `AgentServices`는 `cache`와 선택적인 fixture `backend`만 제공합니다. S1을 upstream에서 실행하려면 adapter가 v0.3 scope/snapshot을 자료 요청으로 변환하고 승인된 worker service factory에서 `data_api`와 `extractor`를 주입해야 합니다. 이 연결 전에는 local module path입니다.
 
-v0.12와 v0.3의 차이: v0.3에서는 Summary를 여러 scope로 요청할 수 있고 S2에서 새 근거마다 interim이 호출됩니다. “DSA 두 번 고정”이라는 이전 v0.12 설명을 이 저장소에 적용하지 않습니다. S2_1 진입은 여전히 NCCT 완료와 order 일치 조건입니다.
+## 책임 구분
+
+| 기능 | Agent | Host/Orchestrator |
+|---|---|---|
+| 호출·workflow 전이·HITL | domain result만 생성 | 호출 시점, 상태 전이, HITL |
+| 입력 | scope와 출처를 읽고 결과 검증 | scope, snapshot, 접근 권한 제공 |
+| 데이터 조회 | 주입 client로 요청 | client·인증·권한 생성 |
+| 실행 envelope·ID·retry | 미소유 | Runtime이 관리 |
+| 저장·UI·알림 | 미소유 | 정한 Runtime/backend 위치에서 연결 |

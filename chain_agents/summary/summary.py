@@ -93,10 +93,10 @@ def run_history(request, snapshot, services):
     if snapshot is not None:
         raise ValueError('Reference-based S1 Summary expects snapshot=None')
     questions = canonical_questions(request.get('questions'))
-    reader = getattr(services, 'summary_data_api', None)
-    extractor = getattr(services, 'summary_extractor', None)
+    reader = getattr(services, 'data_api', None)
+    extractor = getattr(services, 'extractor', None)
     audit = InputAudit(request, extractor)
-    save_input = getattr(services, 'summary_input_observer', None)
+    save_input = getattr(services, 'input_observer', None)
     try:
         resources = resolve(request, reader, audit=audit)
         # Validate structured resources before model inference; no partial success.
@@ -112,7 +112,7 @@ def run_history(request, snapshot, services):
     documents = {ref: data for ref, data in resources.items() if ref.startswith('document:')}
     if documents:
         if extractor is None or not callable(getattr(extractor, 'extract', None)):
-            raise ValueError('services.summary_extractor.extract is required when narrative documents are supplied')
+            raise ValueError('services.extractor.extract is required when narrative documents are supplied')
         model_payload = extractor.extract(copy.deepcopy(documents), list(questions))
     else:
         model_payload = {'facts': [], 'reviewed_documents': []}

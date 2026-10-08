@@ -1,4 +1,56 @@
-# 1: Stroke Screening Agent (CHAIN Mock v0.12)
+# Stroke Screening Agent
+
+## 1. 역할과 상태
+
+합성 또는 지정된 기록에서 stroke screening 근거를 뽑고 prototype rule로 결과를 만듭니다. 실제 임상 판정이나 운영 승인은 아닙니다. v0.3 기본 `invoke`와 별도 Mock v0.12 `invoke_v012` 경로가 있습니다.
+
+## 2. 빠른 실행
+
+저장소 루트에서:
+
+```bash
+python -m examples.run screening
+python -m unittest discover -s tests -p 'test_screening.py' -v
+```
+
+위 합성 mode의 POSITIVE/NEGATIVE는 고정 fixture 출력입니다. 모델 실험은 아래 agent-specific 안내를 참고합니다.
+
+## 3. 공통 호출 함수
+
+```python
+from chain_agents.screening.agent import invoke
+result = invoke(request, snapshot, services)
+```
+
+공식 형식은 세 Agent 공통입니다. v0.3 mode `screening`; `services.backend.select(request, snapshot)`가 필요합니다. 결과 key는 `screening_result`, `mock_only`, `basis`입니다. 신규 service 객체의 공통 속성은 [AgentServices](../services.py)와 [공통 계약](../../docs/CONTRACT.md)에 있습니다.
+
+## 4. 입력과 반환
+
+입력 request/snapshot은 공통 v0.3 contract를 사용합니다. 이 Agent는 `document:DOC-...`, `lkw`, `glucose` 등 승인된 scope를 요구할 수 있습니다. v0.12 별도 입력 예시는 [v012_screening_request.json](../../examples/v012_screening_request.json)입니다.
+
+`invoke` domain result:
+
+```json
+{"screening_result":"POSITIVE","mock_only":true,"basis":["EXPLICIT_SYNTHETIC_TEST_NOT_A_CLASSIFICATION"]}
+```
+
+실제 모델 path는 evidence 및 provenance 요구사항을 포함하는 아래 별도 v0.12 흐름을 사용합니다.
+
+## 5. 데이터·모델 서비스
+
+v0.3 경로는 주입 backend를 사용합니다. v0.12 경로는 범위가 제한된 `HttpSiteDataAPI` client 또는 합성 fixture client와 model을 명시적으로 받습니다. 이 repo는 병원 API server를 제공하지 않습니다. model, GPU, API token은 runtime에서 관리하세요.
+
+## 6. 검증과 오류
+
+입력 scope, 문서 version/hash/patient/encounter, output key와 근거를 검사합니다. backend 누락·미지원 자료·잘못된 결과는 ValueError로 거부하고 정상 NEGATIVE로 변환하지 않습니다.
+
+## 7. Orchestrator 연결 위치
+
+- v0.3: `chain_agents.screening.agent:invoke` → 공통 `AgentRuntime`.
+- reference v0.12: `chain_agents.screening.agent:invoke_v012` → 직접 adapter API.
+- 전체 서비스 주입·등록 차이는 [Orchestrator 통합 안내](../../docs/INTEGRATION.md)에 적었습니다.
+
+## 8. Agent-specific: v0.12 모델 실험과 출력 세부사항
 
 ## 1. 모델과 실행
 

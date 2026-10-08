@@ -3,9 +3,11 @@ import copy
 import json
 from pathlib import Path
 import unittest
-from chain_agents.summary.agent import invoke_s1
+from chain_agents.summary.agent import invoke, invoke_s1
+from chain_agents.services import AgentServices
 from chain_agents.summary.data_contract import FixtureDataAPI
 from examples.summary_s1 import FixtureExtractor
+from examples.support import sample, services
 
 class SummaryModuleTests(unittest.TestCase):
     def setUp(self):
@@ -31,6 +33,17 @@ class SummaryModuleTests(unittest.TestCase):
     def test_missing_extractor_is_rejected(self):
         with self.assertRaises(ValueError):
             invoke_s1(self.fixture['request'], data_api=self.reader)
+
+
+    def test_shared_invoke_signature_handles_context_and_s1(self):
+        request, snapshot = sample('context')
+        context = invoke(request, snapshot, services())
+        self.assertEqual(context['structured_context'], snapshot['facts'])
+        s1_request = dict(self.fixture['request'], mode='s1')
+        shared_services = AgentServices(data_api=self.reader, extractor=self.extractor)
+        s1 = invoke(s1_request, None, shared_services)
+        self.assertEqual(s1['schema_version'], 'summary-s1-fields/v1')
+        self.assertEqual(len(s1['items']), 6)
 
     def test_invalid_trigger_is_rejected(self):
         for trigger in (None, 'S1', {}, {'state_enter': 'S2'}):
