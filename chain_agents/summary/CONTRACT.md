@@ -1,15 +1,14 @@
 # Summary 입출력 계약
 
-실행·API·연동 방법은 [README.md](README.md)를 참고하세요.
-내부 결과는 `summary-s1-fields/v1`, 기본 HTTP 표현은 `clinical-summary-integration/v1`입니다.
-두 형식 모두 프로토타입 계약이며 Mock v0.12의 원래 wire schema와 동일하다고 가정하지 않습니다.
+실행·모듈 호출·연동 방법은 [README.md](README.md)를 참고하세요.
+S1 반환 결과는 `summary-s1-fields/v1`입니다. Mock v0.12 기반의 프로토타입 확장이며 원래 wire schema와 동일하다고 가정하지 않습니다.
 
 ## 1. 요청
 
 | 필드 | 규칙 |
 |---|---|
 | `patient_id`, `encounter_id`, `episode_id` | 비어 있지 않은 문자열 |
-| `trigger.state_enter` | HTTP 초기 호출은 `S1` |
+| `trigger.state_enter` | `invoke_s1` 초기 호출은 `S1` |
 | `input_references` | 중복 없는 지원 참조 목록. 모든 요청 자료가 필수 |
 | `questions` | 지원하는 질문 ID 목록. 자유 자연어 질문 미지원 |
 
@@ -36,7 +35,7 @@
 
 ## 3. 내부 전체 결과
 
-`format=typed` 응답은 다음 필드를 가집니다.
+`invoke_s1`의 반환 dict는 다음 필드를 가집니다.
 
 | 필드 | 내용 |
 |---|---|
@@ -111,34 +110,25 @@ LLM 입력은 질문 catalog와 지정 문서입니다. API token이나 실행 �
 코드는 필드·질문·타입·시간 형식·출처·인용·전체 문서 검토 여부를 검증한 뒤 구조화 자료와 결합합니다.
 최종 `alternatives`와 미기록 상태는 코드에서 정리합니다.
 
-모델은 한 번 호출합니다. HTTP 기본은 `direct`이며 `evidence_first`는 생성 순서 비교 옵션입니다.
+모델은 한 번 호출합니다. 기본은 `direct`이며 `evidence_first`는 생성 순서 비교 옵션입니다.
 둘 다 별도 인용 추출 단계나 두 번째 모델 호출을 사용하지 않습니다.
 
-## 5. 기본 HTTP 표현과 Mock v0.12 차이
+## 5. Runtime과의 경계
 
-기본 `format=mock`은 다음을 추가·변환합니다.
+S1은 typed domain dict를 반환합니다. HTTP 응답, 실행 ID, SUCCESS/FAILED envelope,
+결과 저장·UI 조회·재시도·상태 전이는 통합 Runtime에서 연결해야 합니다.
+독립 HTTP 서버와 기존 mock 출력 변환기는 공유 패키지에서 제외했습니다.
 
-- `items`는 질문 ID를 key로 하는 객체이며, 원본 배열은 `typed_items`에 보존합니다.
-- 실행 ID, 생성 시각, 처리 시간, 모델 정보와 `mock_only`를 포함합니다.
-- confidence는 `null`, confirmation status는 `UNCONFIRMED`입니다.
-- Boolean true는 `PRESENT`, false는 `NO_EVIDENCE`(과거 뇌졸중은 `NONE_DOCUMENTED`)로 표시합니다.
-- `not_stated` → `NOT_STATED`, `explicitly_unknown` → `UNKNOWN`, `conflicting` → `CONFLICTING`입니다.
-- LKW는 `RECORDED`로 표시하고 단일 point만 timestamp 문자열로 변환합니다. 근사·구간은 시간 객체를 유지합니다.
-- 결합 수술/출혈 요청은 하나라도 명시적 true면 true, 둘 다 명시적 false면 false, 그 외는 UNKNOWN/null입니다.
-  개별 상태와 상충은 `typed_items`에서 확인해야 합니다.
+v0.3 `invoke(request, snapshot, services)`의 context 경로는 기존 계약대로
+`structured_context == snapshot.facts`를 보존합니다. S1 추출 결과를 그 필드에 넣지 않습니다.
+S1 결과를 upstream에 연결할 때 Catalog/Workflow/소비자 계약을 공동 검토해야 합니다.
 
-새 UI·후속 코드에는 `format=typed` 사용을 권장합니다. 이 확장을 원래 v0.12 schema 승인으로 해석하지 않습니다.
-공유 orchestrator v0.3의 `structured_context == snapshot.facts` 계약과도 별도입니다.
+## 6. 입력 감사 정보
 
-## 6. 실행 메타데이터
+선택적인 `input_observer` 콜백은 추론 전에 확보한 원본 자료 `resources`와 감사 정보 `metadata`를 받습니다.
+자료 조회 실패 시에는 확보한 범위까지 전달됩니다. 저장은 호출자가 수행하며 이 모듈은 DB를 만들지 않습니다.
+자료별 해시·버전·조회 시각과 질문 정규화 내역을 포함합니다. `coverage:complete`는 요청 자료의
+조회·검증 완료이며 병원 전체 자료 확보를 뜻하지 않습니다. 순차 조회는 원천 시스템의 원자적 snapshot이
+아니며, 과거 as-of 조회를 보장하지 않습니다. Runtime이 사용할 시점과 접근 범위를 보장해야 합니다.
 
-`GET /agent-executions/{id}`에서 임상 결과와 분리해 조회합니다.
-
-- `question_plan`: requested/resolved/aliases/automatically_included, catalog hash와 규칙 버전.
-- `input_audit`: 요청 자료 목록, 확보 상태, 자료별 해시·조회 시각·원본 버전 필드, 전체 입력 해시, 구현·런타임 정보.
-- `coverage:complete`: 요청된 자료의 조회·검증 완료. 모든 병원 기록을 확보했다는 뜻이 아닙니다.
-- 원문 `input_snapshot`, raw generation, 내부 진단은 상태 응답에서 제외하고 SQLite에만 저장합니다.
-- 과거 실행에 audit가 없으면 소급 생성하지 않습니다. 최신 성공 조회에서도 null일 수 있습니다.
-
-추출 결과를 치료 규칙에 연결하려면 필요한 추가 필드(예: 약물 종류·마지막 복용 시각)와 시간 범위를 먼저 정의해야 합니다.
 현재 여섯 질문만으로 치료 적격성을 판단하지 않습니다.

@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .history_s1_contract import QUESTION_CATALOG, REQUEST_ALIASES, canonical_questions
+from .contract import QUESTION_CATALOG, REQUEST_ALIASES, canonical_questions
 
 
 def now():
@@ -30,9 +30,9 @@ def question_plan(questions):
 
 def implementation_fingerprint(extractor):
     root = Path(__file__).parent
-    names = ('agent.py', 'logic.py', 'history_s1_summary.py', 'history_s1_contract.py',
-             'mock_contract.py', 'history_s1_extractor.py', 'experiment.py',
-             'input_audit.py', 'api_service.py', 'api_adapter.py')
+    names = ('agent.py', 'logic.py', 'summary.py', 'contract.py',
+             'data_contract.py', 'extractor.py', 'local_model.py',
+             'input_audit.py', 'site_data_api.py')
     packages = {}
     for name in ('torch', 'transformers', 'accelerate', 'bitsandbytes'):
         try:
