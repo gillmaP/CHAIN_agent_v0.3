@@ -1,0 +1,1082 @@
+[
+  {
+    "case_id": "01_positive_use",
+    "purpose": "항응고제·항혈소판제 구분, 과거 뇌졸중, 두 출처 LKW",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다.",
+    "request": {
+      "episode_id": "EP-01_positive_use",
+      "encounter_id": "ENC-01_positive_use",
+      "patient_id": "SYN-01_positive_use",
+      "input_references": [
+        "document:01_positive_use-1@1",
+        "document:01_positive_use-2@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/01_positive_use-1?version=1": {
+        "document_id": "01_positive_use-1",
+        "version": 1,
+        "patient_id": "SYN-01_positive_use",
+        "encounter_id": "ENC-01_positive_use",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 환자는 현재 항응고제 apixaban 5 mg bid를 복용 중이다. 항혈소판제로 아스피린 100mg qd도 현재 복용한다. 최근 6개월 수술과 출혈은 모두 없었다. 환자는 2021년 뇌졸중 병력이 있다. 마지막 정상 확인 시각은 오늘 09:10이다. 증상 발견은 10:00이다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "01_positive_use-1"
+        }
+      },
+      "GET /documents/01_positive_use-2?version=1": {
+        "document_id": "01_positive_use-2",
+        "version": 1,
+        "patient_id": "SYN-01_positive_use",
+        "encounter_id": "ENC-01_positive_use",
+        "document_type": "ED_TRIAGE_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08 간호기록. 딸에게 확인한 마지막 정상 시각은 오늘 09:10이다. 증상 발견 10:00.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "01_positive_use-2"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "현재 항응고제 apixaban 5 mg bid를 복용 중이다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "항혈소판제로 아스피린 100mg qd도 현재 복용한다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "최근 6개월 수술과 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "최근 6개월 수술과 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "환자는 2021년 뇌졸중 병력이 있다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "documented",
+        "value": {
+          "kind": "point",
+          "start": "2026-10-08T09:10:00+09:00",
+          "end": null,
+          "precision": "minute",
+          "original_text": "오늘 09:10"
+        },
+        "evidence": [
+          {
+            "source_ref": "document:01_positive_use-1@1",
+            "quote": "마지막 정상 확인 시각은 오늘 09:10이다"
+          },
+          {
+            "source_ref": "document:01_positive_use-2@1",
+            "quote": "마지막 정상 시각은 오늘 09:10이다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "02_explicit_unknown",
+    "purpose": "명시적 모름을 없음으로 바꾸지 않기",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다.",
+    "request": {
+      "episode_id": "EP-02_explicit_unknown",
+      "encounter_id": "ENC-02_explicit_unknown",
+      "patient_id": "SYN-02_explicit_unknown",
+      "input_references": [
+        "document:02_explicit_unknown-1@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/02_explicit_unknown-1?version=1": {
+        "document_id": "02_explicit_unknown-1",
+        "version": 1,
+        "patient_id": "SYN-02_explicit_unknown",
+        "encounter_id": "ENC-02_explicit_unknown",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "환자는 항응고제 복용 여부를 모르며 확인 불가하다. 항혈소판제 복용 여부도 모른다. 최근 수술이나 출혈이 있었는지는 확인할 수 없다. 과거 뇌졸중 병력 여부는 알 수 없다. 마지막 정상 시각은 환자와 보호자 모두 모른다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "02_explicit_unknown-1"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "항응고제 복용 여부를 모르며 확인 불가하다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "항혈소판제 복용 여부도 모른다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "최근 수술이나 출혈이 있었는지는 확인할 수 없다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "최근 수술이나 출혈이 있었는지는 확인할 수 없다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "과거 뇌졸중 병력 여부는 알 수 없다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:02_explicit_unknown-1@1",
+            "quote": "마지막 정상 시각은 환자와 보호자 모두 모른다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "03_family_current",
+    "purpose": "아버지 과거력·현재 의심 진단과 환자 과거력 분리",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. 가족력과 현재 의심 진단은 환자의 과거 뇌졸중 질문의 답이 아니다.",
+    "request": {
+      "episode_id": "EP-03_family_current",
+      "encounter_id": "ENC-03_family_current",
+      "patient_id": "SYN-03_family_current",
+      "input_references": [
+        "document:03_family_current-1@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/03_family_current-1?version=1": {
+        "document_id": "03_family_current-1",
+        "version": 1,
+        "patient_id": "SYN-03_family_current",
+        "encounter_id": "ENC-03_family_current",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 아버지는 과거 뇌졸중 병력이 있다. 이번 환자의 현재 진단은 possible acute ischemic stroke이다. 환자 개인의 과거 뇌졸중 병력은 이번 문진에서 다루지 않았다. 현재 항응고제와 항혈소판제는 모두 복용하지 않는다. 최근 수술 및 출혈은 모두 없었다. 오늘 마지막 정상 확인은 06:00이고, 증상 발견은 07:30이다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "03_family_current-1"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "현재 항응고제와 항혈소판제는 모두 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "현재 항응고제와 항혈소판제는 모두 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "최근 수술 및 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "최근 수술 및 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "환자 개인의 과거 뇌졸중 병력은 이번 문진에서 다루지 않았다."
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "documented",
+        "value": {
+          "kind": "point",
+          "start": "2026-10-08T06:00:00+09:00",
+          "end": null,
+          "precision": "minute",
+          "original_text": "오늘 마지막 정상 확인은 06:00"
+        },
+        "evidence": [
+          {
+            "source_ref": "document:03_family_current-1@1",
+            "quote": "오늘 마지막 정상 확인은 06:00이고, 증상 발견은 07:30이다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "04_conflicting_sources",
+    "purpose": "동일 현재 복용 여부·LKW에 대한 두 출처의 상충",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. 동일 episode의 현재 복용 여부와 LKW 충돌은 후보 값과 각각의 근거를 보존한다.",
+    "request": {
+      "episode_id": "EP-04_conflicting_sources",
+      "encounter_id": "ENC-04_conflicting_sources",
+      "patient_id": "SYN-04_conflicting_sources",
+      "input_references": [
+        "document:04_conflicting_sources-1@1",
+        "document:04_conflicting_sources-2@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/04_conflicting_sources-1?version=1": {
+        "document_id": "04_conflicting_sources-1",
+        "version": 1,
+        "patient_id": "SYN-04_conflicting_sources",
+        "encounter_id": "ENC-04_conflicting_sources",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 현재 복용약 확인: 환자는 오늘도 항응고제 warfarin을 복용 중이라고 진술했다. 항혈소판제는 현재 복용하지 않는다고 한다. 최근 수술과 출혈은 모두 없었다. 과거 뇌졸중 병력은 없다. 이번 사건의 마지막 정상 시각은 오늘 09:10이라고 환자가 말한다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "04_conflicting_sources-1"
+        }
+      },
+      "GET /documents/04_conflicting_sources-2?version=1": {
+        "document_id": "04_conflicting_sources-2",
+        "version": 1,
+        "patient_id": "SYN-04_conflicting_sources",
+        "encounter_id": "ENC-04_conflicting_sources",
+        "document_type": "ED_TRIAGE_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 동일 사건 보호자 확인: 보호자는 환자가 현재 항응고제를 전혀 복용하지 않는다고 진술한다. 보호자는 이번 사건의 마지막 정상 시각이 오늘 09:40이라고 진술한다. 어느 진술이 맞는지는 아직 결정하지 못했다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "04_conflicting_sources-2"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "conflicting",
+        "value": null,
+        "evidence": [],
+        "alternatives": [
+          {
+            "value": true,
+            "evidence": [
+              {
+                "source_ref": "document:04_conflicting_sources-1@1",
+                "quote": "환자는 오늘도 항응고제 warfarin을 복용 중이라고 진술했다"
+              }
+            ]
+          },
+          {
+            "value": false,
+            "evidence": [
+              {
+                "source_ref": "document:04_conflicting_sources-2@1",
+                "quote": "보호자는 환자가 현재 항응고제를 전혀 복용하지 않는다고 진술한다"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:04_conflicting_sources-1@1",
+            "quote": "항혈소판제는 현재 복용하지 않는다고 한다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:04_conflicting_sources-1@1",
+            "quote": "최근 수술과 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:04_conflicting_sources-1@1",
+            "quote": "최근 수술과 출혈은 모두 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:04_conflicting_sources-1@1",
+            "quote": "과거 뇌졸중 병력은 없다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "conflicting",
+        "value": null,
+        "evidence": [],
+        "alternatives": [
+          {
+            "value": {
+              "kind": "point",
+              "start": "2026-10-08T09:10:00+09:00",
+              "end": null,
+              "precision": "minute",
+              "original_text": "오늘 09:10"
+            },
+            "evidence": [
+              {
+                "source_ref": "document:04_conflicting_sources-1@1",
+                "quote": "이번 사건의 마지막 정상 시각은 오늘 09:10이라고 환자가 말한다"
+              }
+            ]
+          },
+          {
+            "value": {
+              "kind": "point",
+              "start": "2026-10-08T09:40:00+09:00",
+              "end": null,
+              "precision": "minute",
+              "original_text": "오늘 09:40"
+            },
+            "evidence": [
+              {
+                "source_ref": "document:04_conflicting_sources-2@1",
+                "quote": "이번 사건의 마지막 정상 시각이 오늘 09:40이라고 진술한다"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "case_id": "05_external_vs_local",
+    "purpose": "본원 목록에 없어도 타원 복용·수술 진술을 유지",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. 본원 조회에 없다는 사실만으로 환자가 복용하지 않는다고 판단하지 않는다.",
+    "request": {
+      "episode_id": "EP-05_external_vs_local",
+      "encounter_id": "ENC-05_external_vs_local",
+      "patient_id": "SYN-05_external_vs_local",
+      "input_references": [
+        "encounter_history:6m",
+        "condition:problem_list",
+        "medication:active",
+        "document:05_external_vs_local-1@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/05_external_vs_local-1?version=1": {
+        "document_id": "05_external_vs_local-1",
+        "version": 1,
+        "patient_id": "SYN-05_external_vs_local",
+        "encounter_id": "ENC-05_external_vs_local",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 본원 처방 목록에는 없지만 현재 타원 처방 항응고제 rivaroxaban을 매일 복용 중이라고 환자와 딸이 확인했다. 과거 apixaban은 중단했고 현재는 rivaroxaban만 복용한다. 항혈소판제는 현재 복용하지 않는다. 2주 전 타원에서 수술을 받았다고 한다. 과거 뇌졸중이나 TIA는 없었다. 마지막 정상 확인은 오늘 11:45이다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "05_external_vs_local-1"
+        }
+      },
+      "GET /patients/SYN-05_external_vs_local/medications?status=active": {
+        "patient_id": "SYN-05_external_vs_local",
+        "as_of": "2026-10-08T19:00:00+09:00",
+        "coverage": "본원 활성 처방만 제공, 타원 DUR 미연동",
+        "medications": []
+      },
+      "GET /patients/SYN-05_external_vs_local/conditions": {
+        "patient_id": "SYN-05_external_vs_local",
+        "as_of": "2026-10-08T19:00:00+09:00",
+        "conditions": [
+          {
+            "code": "I63.9",
+            "category": "ENCOUNTER_DIAGNOSIS",
+            "status": "PROVISIONAL"
+          }
+        ]
+      },
+      "GET /patients/SYN-05_external_vs_local/encounters?months=6": {
+        "patient_id": "SYN-05_external_vs_local",
+        "as_of": "2026-10-08T19:00:00+09:00",
+        "window_months": 6,
+        "encounters": [
+          {
+            "encounter_id": "LOCAL-OLD",
+            "surgery": false,
+            "bleeding_event": false,
+            "procedures": []
+          }
+        ]
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:05_external_vs_local-1@1",
+            "quote": "현재 타원 처방 항응고제 rivaroxaban을 매일 복용 중이라고 환자와 딸이 확인했다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:05_external_vs_local-1@1",
+            "quote": "항혈소판제는 현재 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:05_external_vs_local-1@1",
+            "quote": "2주 전 타원에서 수술을 받았다고 한다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:05_external_vs_local-1@1",
+            "quote": "과거 뇌졸중이나 TIA는 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "documented",
+        "value": {
+          "kind": "point",
+          "start": "2026-10-08T11:45:00+09:00",
+          "end": null,
+          "precision": "minute",
+          "original_text": "오늘 11:45"
+        },
+        "evidence": [
+          {
+            "source_ref": "document:05_external_vs_local-1@1",
+            "quote": "마지막 정상 확인은 오늘 11:45이다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "06_partial_negation",
+    "purpose": "수술만 부정했을 때 출혈까지 부정하지 않기, 대략적 LKW",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. 정확한 시각을 모른다는 문장이 있어도 유용한 대략 시각이 기록되어 있으면 근삿값을 보존한다.",
+    "request": {
+      "episode_id": "EP-06_partial_negation",
+      "encounter_id": "ENC-06_partial_negation",
+      "patient_id": "SYN-06_partial_negation",
+      "input_references": [
+        "document:06_partial_negation-1@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/06_partial_negation-1?version=1": {
+        "document_id": "06_partial_negation-1",
+        "version": 1,
+        "patient_id": "SYN-06_partial_negation",
+        "encounter_id": "ENC-06_partial_negation",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08. 항응고제와 항혈소판제는 현재 모두 복용하지 않는다. 최근 수술은 없었다. 출혈 여부는 문진하지 않았다. 과거 뇌졸중 병력은 없다. 마지막 정상은 오늘 15시쯤으로 추정되며 정확한 시각은 확인할 수 없다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "06_partial_negation-1"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "항응고제와 항혈소판제는 현재 모두 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "항응고제와 항혈소판제는 현재 모두 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "최근 수술은 없었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "explicitly_unknown",
+        "value": null,
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "출혈 여부는 문진하지 않았다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "과거 뇌졸중 병력은 없다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "documented",
+        "value": {
+          "kind": "approximate",
+          "start": "2026-10-08T15:00:00+09:00",
+          "end": null,
+          "precision": "hour",
+          "original_text": "오늘 15시쯤"
+        },
+        "evidence": [
+          {
+            "source_ref": "document:06_partial_negation-1@1",
+            "quote": "마지막 정상은 오늘 15시쯤으로 추정되며 정확한 시각은 확인할 수 없다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "07_silent_records",
+    "purpose": "관련 정보가 전혀 없을 때 사실을 만들어내지 않기",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. 제공된 문서 모두 검토한 뒤 언급이 없는 질문은 not_stated다.",
+    "request": {
+      "episode_id": "EP-07_silent_records",
+      "encounter_id": "ENC-07_silent_records",
+      "patient_id": "SYN-07_silent_records",
+      "input_references": [
+        "document:07_silent_records-1@1",
+        "document:07_silent_records-2@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/07_silent_records-1?version=1": {
+        "document_id": "07_silent_records-1",
+        "version": 1,
+        "patient_id": "SYN-07_silent_records",
+        "encounter_id": "ENC-07_silent_records",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08 18:10 응급실 기록. 환자는 현재 말이 어눌하다. 활력징후 BP 150/90 mmHg. CT 촬영을 준비 중이다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "07_silent_records-1"
+        }
+      },
+      "GET /documents/07_silent_records-2?version=1": {
+        "document_id": "07_silent_records-2",
+        "version": 1,
+        "patient_id": "SYN-07_silent_records",
+        "encounter_id": "ENC-07_silent_records",
+        "document_type": "ED_TRIAGE_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08 18:20 간호기록. 정맥로 확보 완료. 보호자에게 대기 장소 안내.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "07_silent_records-2"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "not_stated",
+        "value": null,
+        "evidence": [],
+        "alternatives": []
+      }
+    ]
+  },
+  {
+    "case_id": "08_alias_midnight",
+    "purpose": "ASA 동의어, TIA 과거력, 날짜 경계 LKW, 출혈만 양성",
+    "annotation_note": "현재 항응고제와 항혈소판제는 각각 같은 Boolean 규칙을 사용한다. 수술과 출혈은 부분 누락을 표현할 수 있도록 분리한다. LKW의 근사값은 가능한 정밀도로 기록하며 exact 시각을 만들지 않는다. ASA/아스피린은 항혈소판제다. 날짜 경계를 포함해 LKW를 정규화한다.",
+    "request": {
+      "episode_id": "EP-08_alias_midnight",
+      "encounter_id": "ENC-08_alias_midnight",
+      "patient_id": "SYN-08_alias_midnight",
+      "input_references": [
+        "document:08_alias_midnight-1@1",
+        "document:08_alias_midnight-2@1"
+      ],
+      "questions": [
+        "anticoagulant_use",
+        "antiplatelet_use",
+        "recent_surgery_or_bleeding",
+        "previous_stroke",
+        "lkw_records"
+      ]
+    },
+    "api_responses": {
+      "GET /documents/08_alias_midnight-1?version=1": {
+        "document_id": "08_alias_midnight-1",
+        "version": 1,
+        "patient_id": "SYN-08_alias_midnight",
+        "encounter_id": "ENC-08_alias_midnight",
+        "document_type": "ED_INITIAL_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08 초진. 현재 항응고제는 복용하지 않는다. 항혈소판제로 ASA(아스피린) 100mg을 1일 1회 복용한다. 최근 수술은 없었지만 어제 출혈이 있었다. 환자 본인은 2017년 TIA 병력이 있다. 마지막 정상은 전날 23:50 딸과 전화통화할 때였다. 오늘 00:20에 증상을 발견했다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "08_alias_midnight-1"
+        }
+      },
+      "GET /documents/08_alias_midnight-2?version=1": {
+        "document_id": "08_alias_midnight-2",
+        "version": 1,
+        "patient_id": "SYN-08_alias_midnight",
+        "encounter_id": "ENC-08_alias_midnight",
+        "document_type": "ED_TRIAGE_NOTE",
+        "status": "CURRENT",
+        "saved_time": "2026-10-08T19:30:00+09:00",
+        "text": "2026-10-08 간호기록. LKW는 2026-10-07 23:50으로 보호자에게 확인했다. 증상 발견은 2026-10-08 00:20이다.",
+        "provenance": {
+          "source_system": "SYNTHETIC_EMR",
+          "source_record_id": "08_alias_midnight-2"
+        }
+      }
+    },
+    "questions": [
+      "anticoagulant_use",
+      "antiplatelet_use",
+      "recent_surgery",
+      "recent_bleeding",
+      "previous_stroke",
+      "lkw_records"
+    ],
+    "gold_items": [
+      {
+        "question": "anticoagulant_use",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "현재 항응고제는 복용하지 않는다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "antiplatelet_use",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "항혈소판제로 ASA(아스피린) 100mg을 1일 1회 복용한다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_surgery",
+        "status": "documented",
+        "value": false,
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "최근 수술은 없었지만 어제 출혈이 있었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "recent_bleeding",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "어제 출혈이 있었다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "previous_stroke",
+        "status": "documented",
+        "value": true,
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "환자 본인은 2017년 TIA 병력이 있다"
+          }
+        ],
+        "alternatives": []
+      },
+      {
+        "question": "lkw_records",
+        "status": "documented",
+        "value": {
+          "kind": "point",
+          "start": "2026-10-07T23:50:00+09:00",
+          "end": null,
+          "precision": "minute",
+          "original_text": "전날 23:50"
+        },
+        "evidence": [
+          {
+            "source_ref": "document:08_alias_midnight-1@1",
+            "quote": "마지막 정상은 전날 23:50 딸과 전화통화할 때였다"
+          },
+          {
+            "source_ref": "document:08_alias_midnight-2@1",
+            "quote": "LKW는 2026-10-07 23:50으로 보호자에게 확인했다"
+          }
+        ],
+        "alternatives": []
+      }
+    ]
+  }
+]

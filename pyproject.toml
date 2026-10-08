@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "chain-agent-starter"
 version = "0.1.0"
-description = "Three independent Agent plugins for CHAIN orchestration v0.3"
+description = "Three independent clinical support Agent plugins"
 requires-python = ">=3.11"
 dependencies = []
 

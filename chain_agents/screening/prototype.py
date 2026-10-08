@@ -1,8 +1,7 @@
-"""Team 1 synthetic/local-only LLM Screening prototype for CHAIN.
+"""Synthetic/local-only LLM Screening prototype.
 
 The LLM extracts verbatim, source-grounded findings. A *prototype*, conservative
-rule combines extracted findings; it is not a clinical diagnostic rule. The
-v0.3 orchestrator boundary remains in agent.py / logic.py.
+rule combines extracted findings; it is not a clinical diagnostic rule.
 """
 from __future__ import annotations
 
@@ -113,17 +112,17 @@ def validate_documents(documents: list[dict]) -> list[dict]:
     return validated
 
 
-def make_messages(documents: list[dict], structured_context: dict | None = None,
+def make_messages(documents: list[dict], structured_facts: dict | None = None,
                   *, model_key: str | None = None) -> list[dict]:
     docs = validate_documents(documents)
-    if structured_context is not None and not isinstance(structured_context, dict):
-        raise ValueError('structured_context must be an object')
-    # Supplying structured context lets the caller retain it as separate evidence,
+    if structured_facts is not None and not isinstance(structured_facts, dict):
+        raise ValueError('structured_facts must be an object')
+    # Supplying structured facts lets the caller retain them as separate evidence,
     # but the LLM is instructed to quote only actual documents.
     data = {'documents': [
         {'source_ref': _source_ref(doc), 'document_type': doc.get('document_type'),
          'saved_time': doc.get('saved_time'), 'text': doc['text']}
-        for doc in docs], 'structured_context': structured_context or {}}
+        for doc in docs], 'structured_facts': structured_facts or {}}
     payload = json.dumps(data, ensure_ascii=False)
     if model_key == 'medgemma15_4b_it':
         # Keep the medical documents in the identical JSON payload; only add a
@@ -249,10 +248,10 @@ def _medgemma_final_text(raw: str | dict) -> str | dict:
     return raw
 
 
-def screen_documents(model: Any, documents: list[dict], structured_context: dict | None = None) -> dict:
+def screen_documents(model: Any, documents: list[dict], structured_facts: dict | None = None) -> dict:
     docs = validate_documents(documents)
     response = model.generate(make_messages(
-        docs, structured_context, model_key=getattr(model, 'model_key', None)))
+        docs, structured_facts, model_key=getattr(model, 'model_key', None)))
     # Some model clients return (text, latency, token_count).
     raw = response[0] if isinstance(response, tuple) else response
     try:
@@ -289,7 +288,7 @@ def documents_from_snapshot(snapshot: dict) -> tuple[list[dict], dict]:
     """Do not fetch unscoped data; Runtime must inject document text as Fact values."""
     facts = snapshot.get('facts', {})
     docs = []
-    context = {}
+    structured_facts = {}
     for name, fact in facts.items():
         if not isinstance(fact, dict):
             raise ValueError('Invalid scoped fact')
@@ -317,21 +316,20 @@ def documents_from_snapshot(snapshot: dict) -> tuple[list[dict], dict]:
                          'text': value.get('text'), 'document_type': value.get('document_type'),
                          'saved_time': value.get('saved_time')})
         elif fact.get('status') == 'AVAILABLE':
-            context[name] = copy.deepcopy(fact.get('value'))
-    return validate_documents(docs), context
+            structured_facts[name] = copy.deepcopy(fact.get('value'))
+    return validate_documents(docs), structured_facts
 
 
 class ScreeningLLMBackend:
-    """Explicit opt-in real inference backend for the existing v0.3 entrypoint."""
+    """Explicit opt-in local inference backend for the public entrypoint."""
     def __init__(self, model: Any):
         self.model = model
 
     def select(self, request: dict, snapshot: dict) -> dict:
-        docs, context = documents_from_snapshot(snapshot)
-        output = screen_documents(self.model, docs, context)
+        docs, structured_facts = documents_from_snapshot(snapshot)
+        output = screen_documents(self.model, docs, structured_facts)
         if output['review_required']:
-            # v0.3 only accepts POSITIVE/NEGATIVE; fail safe, no S1 transition.
-            raise ValueError('Screening REVIEW_REQUIRED: no supported v0.3 enum; do not transition')
+            raise ValueError('Screening REVIEW_REQUIRED: no supported output category')
         basis = [f"{x['code']} [{x['source_ref']}]: {x['quote']}" for x in output['evidence']
                  if x['status'] == 'present' and
                  (x['code'] in FOCAL_CODES or x['code'] in {'acute_onset', 'no_focal_deficit'})]

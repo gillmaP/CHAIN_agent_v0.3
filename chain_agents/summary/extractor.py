@@ -1,4 +1,4 @@
-"""Typed, quote-grounded S1 extraction: one-pass and quote-first variants."""
+"""Typed, quote-grounded Clinical Summary extraction."""
 import json
 import time
 
@@ -7,7 +7,7 @@ from .contract import QUESTION_CATALOG, validate_model_payload
 
 MAX_NEW_TOKENS = 8192
 
-DIRECT_PROMPT = '''You extract facts for the initial S1 Clinical Summary. Work only from the supplied narrative documents and fixed question catalog. Return only one JSON object with exactly: {"facts": [...], "reviewed_documents": [...]}.
+DIRECT_PROMPT = '''You extract facts for the Clinical Summary. Work only from the supplied narrative documents and fixed question catalog. Return only one JSON object with exactly: {"facts": [...], "reviewed_documents": [...]}.
 Each fact has EXACTLY question, status, value, evidence. Each evidence entry has EXACTLY source_ref and quote. Do not output an assertion/polarity property.
 
 STATUS RULES:
@@ -68,7 +68,7 @@ def _question_specs(questions):
     return [{'question': q, **QUESTION_CATALOG[q]} for q in questions]
 
 
-class LocalS1Extractor:
+class LocalSummaryExtractor:
     def __init__(self, model_key, model_dir, gpu=None, max_new_tokens=MAX_NEW_TOKENS, method='direct'):
         if method not in ('direct', 'evidence_first'):
             raise ValueError('method must be direct or evidence_first')
@@ -115,7 +115,7 @@ class LocalS1Extractor:
         generation['generation_calls'] = self.generation_calls
         self.last_generation = generation
         if generation['cap_reached']:
-            raise ValueError('S1 extraction reached token limit')
+            raise ValueError('Summary extraction reached token limit')
         payload = _decode(generation['raw'], 'facts')
         self.details = {'parsed_payload': payload, 'expected_field_order': FIELD_ORDERS[self.method]}
         if not isinstance(payload, dict) or set(payload) != {'facts', 'reviewed_documents'}:

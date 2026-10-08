@@ -1,4 +1,4 @@
-"""Clinical Summary domain contract for reference-based mock v0.12 requests."""
+"""Clinical Summary source-reference and input contract."""
 import copy
 import re
 from urllib.parse import quote
@@ -20,7 +20,7 @@ def requested_items(request):
     if not isinstance(refs, list) or not refs or any(not isinstance(x,str) for x in refs) or len(set(refs)) != len(refs):
         raise ValueError('Unique input_references required')
     items = list(dict.fromkeys(qs))
-    # v0.12 purpose/output includes antiplatelets alongside anticoagulants.
+    # The medication-use question includes antiplatelet status as a related item.
     if 'anticoagulant_use' in items and 'antiplatelet_use' not in items: items.append('antiplatelet_use')
     return items
 
@@ -46,7 +46,7 @@ class FixtureDataAPI:
 def resolve(request, reader, audit=None):
     requested_items(request)
     if reader is None or not callable(getattr(reader,'get',None)):
-        raise ValueError('services.summary_data_api.get(path) required')
+        raise ValueError('services.data_api.get(path) required')
     resources={}
     for ref in request['input_references']:
         from .input_audit import InputResolutionError, now

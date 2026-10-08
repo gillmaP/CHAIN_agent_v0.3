@@ -9,7 +9,8 @@
 - Return domain output only: upstream Runtime owns the Result envelope and all workflow state changes.
 - Missing/unimplemented processing raises ValueError; do not return an error object as SUCCESS.
 - Shared contracts/helpers or new output keys require review across teams and orchestration.
-- Current Summary structured_context must exactly equal incoming snapshot.facts.
+- Summary has one operation: build one complete question-oriented result per invocation. Do not add state-specific Summary paths.
+- Orchestrator/API routing identifies the Agent. Do not duplicate agent/action selectors in the clinical request body.
 - Synthetic mock output is not a clinical decision. Do not silently remove mock_only or invent confidence.
 - Do not store credentials, real patient records or generated local runtime output in git.
 - Run `python -m unittest discover -s tests -v` before proposing changes.

@@ -25,14 +25,14 @@ def question_plan(questions):
             'aliases': {q: list(REQUEST_ALIASES[q]) for q in questions if q in REQUEST_ALIASES},
             'automatically_included': ['antiplatelet_use'] if 'anticoagulant_use' in questions
                 and 'antiplatelet_use' not in questions else [],
-            'catalog_hash': digest(QUESTION_CATALOG), 'policy_version': 's1-question-plan/v1'}
+            'catalog_hash': digest(QUESTION_CATALOG), 'policy_version': 'summary-question-plan/v1'}
 
 
 def implementation_fingerprint(extractor):
     root = Path(__file__).parent
     names = ('agent.py', 'logic.py', 'summary.py', 'contract.py',
              'data_contract.py', 'extractor.py', 'local_model.py',
-             'input_audit.py', 'site_data_api.py', 'local_model.py')
+             'input_audit.py')
     packages = {}
     for name in ('torch', 'transformers', 'accelerate', 'bitsandbytes'):
         try:

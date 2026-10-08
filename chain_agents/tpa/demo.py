@@ -30,11 +30,9 @@ def sample(mode='final', scenario='normal'):
         facts['platelet_count'].update(value=90000, status='AVAILABLE')
     elif scenario != 'normal':
         raise ValueError('Unknown synthetic scenario')
-    snapshot = {'contract_schema': 'chain-context/v0.3', 'known_at': now, 'facts': facts}
+    snapshot = {'known_at': now, 'facts': facts}
     snapshot['snapshot_id'] = canonical_hash(snapshot)
-    request = {'contract_schema': 'chain-agent-request/v0.3', 'request_id': 'SYNTHETIC-TPA-' + mode,
-               'agent_id': 'tpa-decision-support-agent', 'agent_version': '0.1.0-starter',
-               'manifest_hash': 'sha256:' + '0' * 64, 'mode': mode,
+    request = {'request_id': 'SYNTHETIC-TPA-' + mode, 'mode': mode,
                'input_snapshot_id': snapshot['snapshot_id'], 'scope': list(facts),
                'dependencies': [copy.deepcopy(fact['source_ref']) for fact in facts.values()], 'evaluated_at': now}
     return request, snapshot

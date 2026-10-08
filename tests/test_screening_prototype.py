@@ -44,9 +44,9 @@ def scope_case(docs=DOCS):
                      'source_ref': {'system':'SYNTHETIC','record_id':doc['document_id'],
                                     'version':doc['version'],'field':'text'},
                      'source_time':at,'known_at':at}
-    snap={'contract_schema':'chain-context/v0.3','known_at':at,'facts':facts}
+    snap={'known_at':at,'facts':facts}
     snap['snapshot_id']=canonical_hash(snap)
-    request={'mode':'screening','input_snapshot_id':snap['snapshot_id'],
+    request={'input_snapshot_id':snap['snapshot_id'],
              'evaluated_at':at,'scope':list(facts)}
     return request,snap
 
@@ -64,7 +64,7 @@ class PrototypeTests(unittest.TestCase):
     def test_positive_one_llm_call_and_no_mutation(self):
         model=FakeModel(POS)
         before=copy.deepcopy(DOCS)
-        output=screen_documents(model,DOCS,CASE['structured_context'])
+        output=screen_documents(model,DOCS,CASE['structured_facts'])
         self.assertEqual(output['screening_result'],'POSITIVE')
         self.assertEqual(model.calls,1)
         self.assertEqual(DOCS,before)
@@ -145,18 +145,18 @@ class PrototypeTests(unittest.TestCase):
     def test_contradictory_evidence_deferred(self):
         evidence=POS+[item('focal_weakness','Motor: Rt. U/E G2, Rt. L/E G3, Lt. side G5','absent')]
         self.assertEqual(screen_documents(FakeModel(evidence),DOCS)['screening_result'],'REVIEW_REQUIRED')
-    def test_v03_real_backend_positive_contract(self):
+    def test_real_backend_positive_contract(self):
         req,snap=scope_case();original=copy.deepcopy((req,snap))
         result=invoke(req,snap,SimpleNamespace(backend=ScreeningLLMBackend(FakeModel(POS))))
         self.assertEqual(set(result),{'screening_result','mock_only','basis'})
         self.assertEqual(result['screening_result'],'POSITIVE')
         self.assertIs(result['mock_only'],False)
         self.assertEqual((req,snap),original)
-    def test_v03_review_fails_safe(self):
+    def test_review_fails_safe(self):
         req,snap=scope_case()
         with self.assertRaisesRegex(ValueError,'REVIEW_REQUIRED'):
             invoke(req,snap,SimpleNamespace(backend=ScreeningLLMBackend(FakeModel([]))))
-    def test_v03_negative_has_basis(self):
+    def test_negative_has_basis(self):
         doc={'document_id':'NEG-1','version':1,'text':'신경학적 국소 결손 없음.'}
         req,snap=scope_case([doc])
         out=invoke(req,snap,SimpleNamespace(backend=ScreeningLLMBackend(FakeModel([

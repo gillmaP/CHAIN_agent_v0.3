@@ -23,7 +23,7 @@ class PreparedSyntheticOutput:
     def generate(self, messages):
         data = json.loads(messages[1]['content'])
         docs = {doc['source_ref']: doc['text'] for doc in data['documents']}
-        # This fixture is explicitly limited to mock_v0.12_stroke_reference_001.
+        # This fixture is explicitly limited to mock_reference_stroke_reference_001.
         a = 'document:DOC-2610060412@1'
         b = 'document:DOC-2610060403@2'
         evidence = [
@@ -121,7 +121,7 @@ def main(argv=None):
         model = LocalScreeningModel(args.model, gpu=args.gpu, max_new_tokens=args.max_new_tokens)
     case = json.loads(path.read_text(encoding='utf-8'))
     try:
-        result = screen_documents(model, case['documents'], case.get('structured_context'))
+        result = screen_documents(model, case['documents'], case.get('structured_facts'))
     except ScreeningResponseError as exc:
         if output_file is not None:
             # Only write the rejected response if --output was requested.

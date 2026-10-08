@@ -1,14 +1,13 @@
 # Summary 입출력 계약
 
-실행·모듈 호출·연동 방법은 [README.md](README.md)를 참고하세요.
-S1 반환 결과는 `summary-s1-fields/v1`입니다. Mock v0.12 기반의 프로토타입 확장이며 원래 wire schema와 동일하다고 가정하지 않습니다.
+실행과 모듈 연결 방법은 [README.md](README.md)를 참고하세요.
+Summary는 한 번 호출해 전체 질문 결과를 반환합니다. 결과 형식 이름은 `summary-items/v1`입니다.
 
 ## 1. 요청
 
 | 필드 | 규칙 |
 |---|---|
 | `patient_id`, `encounter_id`, `episode_id` | 비어 있지 않은 문자열 |
-| `trigger.state_enter` | `invoke_s1` 초기 호출은 `S1` |
 | `input_references` | 중복 없는 지원 참조 목록. 모든 요청 자료가 필수 |
 | `questions` | 지원하는 질문 ID 목록. 자유 자연어 질문 미지원 |
 
@@ -28,18 +27,18 @@ S1 반환 결과는 `summary-s1-fields/v1`입니다. Mock v0.12 기반의 프로
 
 - `recent_surgery_or_bleeding` → `recent_surgery`, `recent_bleeding`으로 확장합니다.
 - `anticoagulant_use` 요청에 `antiplatelet_use`를 자동 포함합니다.
-- 중복을 제거하고 위 catalog 순서로 반환합니다. 요청/변환/자동 포함 내역은 실행의 `question_plan`에 기록합니다.
+- 중복을 제거하고 위 catalog 순서로 반환합니다.
 - 최근 병력의 기본 검색 범위는 6개월입니다. 특정 치료의 금기 기간을 판정하는 규칙은 아닙니다.
 - Boolean 값은 JSON `true`/`false`입니다. 약명·용량은 근거에 보존하며 Boolean 자리에 문자열을 넣지 않습니다.
 - 목록에 약물·질환이 없다는 사실만으로 `false`를 만들지 않습니다.
 
 ## 3. 내부 전체 결과
 
-`invoke_s1`의 반환 dict는 다음 필드를 가집니다.
+Agent 반환 dict는 다음 필드를 가집니다.
 
 | 필드 | 내용 |
 |---|---|
-| `schema_version` | `summary-s1-fields/v1` |
+| `schema_version` | `summary-items/v1` |
 | `episode_id`, `encounter_id` | 요청의 식별자 |
 | `input_references` | 요청한 자료 참조 |
 | `questions` | 정규화된 실제 처리 질문 |
@@ -113,15 +112,11 @@ LLM 입력은 질문 catalog와 지정 문서입니다. API token이나 실행 �
 모델은 한 번 호출합니다. 기본은 `direct`이며 `evidence_first`는 생성 순서 비교 옵션입니다.
 둘 다 별도 인용 추출 단계나 두 번째 모델 호출을 사용하지 않습니다.
 
-## 5. Runtime과의 경계
+## 5. Orchestrator와의 경계
 
-S1은 typed domain dict를 반환합니다. HTTP 응답, 실행 ID, SUCCESS/FAILED envelope,
-결과 저장·UI 조회·재시도·상태 전이는 통합 Runtime에서 연결해야 합니다.
-독립 HTTP 서버와 기존 mock 출력 변환기는 공유 패키지에서 제외했습니다.
+Summary는 질문별 임상 정보와 근거만 반환합니다. Orchestrator/Host는 Agent 선택, 실행 성공·실패 상태, 결과 저장, 화면 조회, 재시도와 workflow 전이를 관리합니다. API 경로 또는 등록 정보가 Summary를 선택하므로 임상 요청 본문에 `agent`나 `action`을 중복해서 넣지 않습니다.
 
-v0.3 `invoke(request, snapshot, services)`의 context 경로는 기존 계약대로
-`structured_context == snapshot.facts`를 보존합니다. S1 추출 결과를 그 필드에 넣지 않습니다.
-S1 결과를 upstream에 연결할 때 Catalog/Workflow/소비자 계약을 공동 검토해야 합니다.
+`snapshot`이 제공되면 요청에 함께 전달된 `input_snapshot_id`와 일치하는지 확인합니다. Summary의 원문·구조화 자료는 `input_references`를 따라 `data_api`에서 조회합니다. 입력 자료 조회는 원천 시스템의 원자적 snapshot이나 과거 as-of 조회를 보장하지 않습니다. Host가 자료의 권한과 기준 시점을 보장해야 합니다.
 
 ## 6. 입력 감사 정보
 

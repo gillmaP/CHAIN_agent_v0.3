@@ -1,5 +1,5 @@
 {
-  "case_id": "mock_v0.12_stroke_reference_001",
+  "case_id": "synthetic_stroke_screening_case_001",
   "synthetic_only": true,
   "documents": [
     {
@@ -17,7 +17,7 @@
       "text": "[응급 초기평가 - 간호]  2026-10-06  ER\n내원시각 15:12  내원경로 119 구급차  동반 보호자 딸\n주호소 우측 팔다리 힘없음, 말 어눌함 (보호자 진술)\n발생시각 14:20 발견 / 마지막 정상 확인 13:35 (딸과 통화)\n의식 alert (지시수행 일부), 언어 표현 어려움\nV/S 15:14  BP 172/94  HR 88  RR 18  BT 36.6  SpO2 97% (RA)\nBST 158 mg/dL (15:14, POCT)\nKTAS 2 (급성 신경학적 결손)\nFAST: Face(+) Arm(+) Speech(+)\n낙상위험 高, 흡인위험 — NPO 유지\n15:16  체중 67 kg (침상체중계 측정), 신장 158 cm (보호자 진술)\n15:16  18G IV line Lt. forearm 확보, 채혈 (CBC, PT/aPTT, chem) 시행 → 검사실 전송\n15:17  12-lead ECG 시행 → 판독 대기"
     }
   ],
-  "structured_context": {
+  "structured_facts": {
     "age": 68,
     "sex": "F",
     "arrival_time": "2026-10-06T15:12:41+09:00",

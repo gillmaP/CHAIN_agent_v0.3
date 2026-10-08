@@ -70,7 +70,7 @@ class TpaTests(unittest.TestCase):
         self.assertEqual(output['assessment']['dose_preview']['options'], [])
 
     def test_wrong_mode_fails(self):
-        self.request['mode'] = 'context'
+        self.request['mode'] = 'unknown-stage'
         with self.assertRaises(ValueError):
             self.output()
 

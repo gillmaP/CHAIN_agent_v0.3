@@ -1,4 +1,4 @@
-"""Compose the v0.3 domain result. Runtime owns envelopes, audit and HITL."""
+"""Build the tPA domain result. The Host owns execution status and workflow."""
 import json
 
 from ..common import inputs

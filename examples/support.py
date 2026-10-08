@@ -25,17 +25,16 @@ class SyntheticBackend:
 def services(backend=None, *, data_api=None, extractor=None, input_observer=None):
     return AgentServices(cache=MemoryCache(), backend=backend, data_api=data_api, extractor=extractor, input_observer=input_observer)
 
-def sample(mode='context'):
+def sample(mode='screening'):
     timestamp = '2026-10-06T09:00:00+09:00'
     ref = {'system': 'SYNTHETIC', 'record_id': 'TEST-001', 'version': 1, 'field': 'age'}
     facts = {'age': {'value': 68, 'status': 'AVAILABLE', 'source_ref': ref,
                      'source_time': timestamp, 'known_at': timestamp}}
-    snapshot = {'contract_schema': 'chain-context/v0.3', 'known_at': timestamp, 'facts': facts}
+    snapshot = {'known_at': timestamp, 'facts': facts}
     snapshot['snapshot_id'] = canonical_hash(snapshot)
-    aid = {'context': 'clinical-summary-agent', 'screening': 'stroke-screening-agent',
-           'interim': 'tpa-decision-support-agent', 'final': 'tpa-decision-support-agent'}[mode]
-    request = {'contract_schema': 'chain-agent-request/v0.3', 'request_id': 'LOCAL-TEST-'+mode,
-               'agent_id': aid, 'agent_version': '0.1.0-starter', 'manifest_hash': 'sha256:'+'0'*64,
-               'mode': mode, 'input_snapshot_id': snapshot['snapshot_id'], 'scope': ['age'],
+    request = {'request_id': 'LOCAL-TEST-'+mode,
+               'input_snapshot_id': snapshot['snapshot_id'], 'scope': ['age'],
                'dependencies': [copy.deepcopy(ref)], 'evaluated_at': timestamp}
+    if mode in {'interim', 'final'}:
+        request['mode'] = mode
     return request, snapshot

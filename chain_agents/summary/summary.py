@@ -1,4 +1,4 @@
-"""Initial S1 Summary invocation: retrieve, extract, validate, reconcile, return."""
+"""Retrieve requested sources, extract evidence, validate and build Summary."""
 import copy
 import json
 import re
@@ -88,10 +88,8 @@ def _structured_facts(resources, questions):
     return facts, missing
 
 
-def run_history(request, snapshot, services):
-    """One S1 request returns a complete typed Summary object to the runtime."""
-    if snapshot is not None:
-        raise ValueError('Reference-based S1 Summary expects snapshot=None')
+def run_summary(request, services):
+    """Return a complete typed Summary object for later storage and display."""
     questions = canonical_questions(request.get('questions'))
     reader = getattr(services, 'data_api', None)
     extractor = getattr(services, 'extractor', None)
@@ -130,7 +128,7 @@ def run_history(request, snapshot, services):
         'items': items,
         'missing_information': list(dict.fromkeys(missing)),
         'model_info': {
-            'rule_set': 'summary-s1-reconcile/v1',
+            'rule_set': 'summary-reconcile/v1',
             'llm_tier': 'INTERNAL_ON_PREM',
             'model_key': getattr(extractor, 'model_key', None),
             'extraction_method': getattr(extractor, 'method', 'deterministic-only' if not documents else None),

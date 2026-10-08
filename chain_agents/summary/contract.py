@@ -1,4 +1,4 @@
-"""Typed request/output contract for the initial S1 Summary invocation."""
+"""Typed Clinical Summary request/output contract."""
 from __future__ import annotations
 
 import json
@@ -6,14 +6,14 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 
-SCHEMA_VERSION = 'summary-s1-fields/v1'
+SCHEMA_VERSION = 'summary-items/v1'
 STATUSES = {'documented', 'not_stated', 'explicitly_unknown', 'conflicting', 'not_applicable'}
 TIME_KINDS = {'point', 'approximate', 'interval', 'before', 'after', 'partial'}
 TIME_PRECISIONS = {'second', 'minute', 'hour', 'day', 'unknown'}
 TIME_KEYS = {'kind', 'start', 'end', 'precision', 'original_text'}
 
 # The orchestrator sends stable question IDs. It does not send free-text queries for
-# the initial S1 call. These definitions are supplied to the LLM and validators.
+# each Summary call. These definitions are supplied to the LLM and validators.
 QUESTION_CATALOG = {
     'anticoagulant_use': {
         'type': 'boolean',
@@ -30,13 +30,13 @@ QUESTION_CATALOG = {
     'recent_surgery': {
         'type': 'boolean',
         'value_schema': 'JSON boolean only: true or false. null is allowed only when status is explicitly_unknown or another non-documented status.',
-        'scope': 'Whether this patient had surgery within the recent-history window stated by the source/request (default six months for this S1 prototype).',
+        'scope': 'Whether this patient had surgery within the recent-history window stated by the source/request (default six months for this prototype).',
         'rules': 'true/false requires explicit evidence. Do not use a denial of surgery to answer recent_bleeding.',
     },
     'recent_bleeding': {
         'type': 'boolean',
         'value_schema': 'JSON boolean only: true or false. null is allowed only when status is explicitly_unknown or another non-documented status.',
-        'scope': 'Whether this patient had a bleeding event within the recent-history window stated by the source/request (default six months for this S1 prototype).',
+        'scope': 'Whether this patient had a bleeding event within the recent-history window stated by the source/request (default six months for this prototype).',
         'rules': 'true/false requires explicit evidence. Do not use a denial of bleeding to answer recent_surgery.',
     },
     'previous_stroke': {

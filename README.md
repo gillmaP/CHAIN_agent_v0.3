@@ -1,120 +1,106 @@
-# CHAIN Agent Prototype
+# CHAIN Clinical Support Agents
 
-이 저장소는 뇌졸중 진료 지원을 위한 세 Agent를 한 Python 프로젝트에서 개발하고 실행하는 프로토타입입니다. 각 Agent는 맡은 작업을 처리해 결과를 돌려줍니다. 별도 프로그램인 Orchestrator가 업무 단계에 따라 Agent를 호출하고, 결과를 다음 단계에 전달합니다.
+이 저장소는 세 개의 독립된 임상 지원 Agent를 제공합니다. Orchestrator가 필요한 Agent를 골라 호출하고, 각 Agent는 맡은 결과만 반환합니다. Agent끼리 서로를 호출하거나 하나의 고정 임상 흐름을 실행하지 않습니다.
 
-## 전체 구성
-
-```mermaid
-flowchart LR
-    O[Orchestrator] --> S[Stroke Screening]
-    O --> C[Clinical Summary]
-    O --> T[tPA Decision Support]
-    S --> O
-    C --> O
-    T --> O
+```text
+Orchestrator / Host
+  ├─ Stroke Screening Agent
+  ├─ Clinical Summary Agent
+  └─ tPA Decision Support Agent
 ```
 
-Agent끼리 직접 다음 Agent를 호출하지 않습니다. Orchestrator가 어떤 Agent를 언제 부를지 정하고 각 결과를 받습니다.
+## 각 Agent의 역할
 
-## Agent별 역할과 입출력
+| Agent | 하는 일 | 결과 |
+|---|---|---|
+| **Stroke Screening** | 진료 기록과 선별 정보를 살펴 뇌졸중 의심 근거를 찾음 | 선별 결과와 인용 근거 |
+| **Clinical Summary** | 지정된 환자 자료에서 요청한 임상 정보를 질문별로 모음 | 상태·값·출처·인용, 미확인 정보 |
+| **tPA Decision Support** | 구조화된 정보를 규칙에 대입해 검토 항목을 정리 | 규칙별 결과와 의료진 확인 항목 |
 
-| Agent | 입력 | 내부 처리 | 반환 결과 |
-|---|---|---|---|
-| **Stroke Screening** | 뇌졸중 선별 기록과 구조화 정보 | 기록에서 근거를 찾고 prototype rule로 screening 결과를 만듭니다. Mock v0.12 경로에서는 로컬 LLM을 사용합니다. | 선별 결과, 발견 근거, 임상 시각, 추가 확인 정보 |
-| **Clinical Summary** | 환자·내원 정보, 자료 목록, 답을 원하는 질문 | 구조화 자료는 코드가 처리하고, 문서 원문은 LLM이 질문별 사실과 인용을 찾습니다. | 질문별 `items`, 근거 인용, `missing_information` |
-| **tPA Decision Support** | `interim` 또는 `final` 요청과 구조화된 임상 사실 | LLM 없이 결정론적 규칙과 수치 계산을 적용합니다. | `assessment`와 입력 근거를 보존한 `evidence_package` |
+Screening과 Summary는 내부 LLM을 사용할 수 있습니다. tPA는 결정론적 규칙만 적용합니다. 세 Agent 모두 의료진의 판단을 대신하지 않습니다.
 
-현재의 각 Agent는 독립적으로 호출할 수 있습니다. 통합 예제는 한 프로세스에서 세 Agent 결과를 함께 보여주지만, Screening 결과를 Summary 입력으로 자동 전달하는 순차 의료 workflow를 구성하지는 않습니다.
+## 공통 호출 방식
 
-## 공통 호출 방법
-
-각 Agent의 Python 진입점은 다음 모양입니다.
+각 모듈은 같은 Python 진입점을 사용합니다.
 
 ```python
-invoke(request, snapshot, services) -> result
+invoke(request, snapshot, services) -> dict
 ```
 
-- `request`: 지금 어떤 작업을 할지와 필요한 질문을 전달합니다.
-- `snapshot`: 호출 시점에 확정된 구조화 자료 묶음입니다. 요청 방식에 따라 비어 있을 수 있습니다.
-- `services`: Agent가 자료 조회나 모델 실행에 사용할 기능입니다.
-- `result`: Agent가 만든 결과 사전입니다.
+공통점은 호출 방식뿐입니다. Agent마다 업무 입력과 결과는 다릅니다. Orchestrator의 등록 정보나 API 경로가 Agent를 고릅니다. 요청 본문에는 `agent`를 반복하지 않습니다. 한 가지 작업만 하는 Summary에는 `action`도 필요하지 않습니다. tPA의 `mode`는 `interim`과 `final` 중 평가 단계를 정하므로 유지합니다.
 
-실제 연결에서는 Orchestrator가 요청을 만들고, 실행 환경이 필요한 `services`를 준비해 Agent를 호출합니다. Agent는 결과를 돌려주며, 업무 단계 관리와 결과 저장·전달은 Orchestrator가 맡습니다.
+Summary는 한 번 호출해 요청한 모든 질문의 결과를 만듭니다. Orchestrator/Host가 결과를 저장하면 화면은 나중에 저장된 결과를 조회합니다.
 
-## 실행해 보기
+## 실행
 
-Python 3.11 이상, 저장소 루트에서 실행합니다.
-
-### Agent별 합성 예제
+저장소 루트에서 Python 3.11 이상으로 실행합니다.
 
 ```bash
+# Agent별 합성 입력 예제
 python -m examples.run screening
 python -m examples.run summary
 python -m examples.run tpa
-```
 
-세 명령은 고정된 합성 입력을 사용하며 LLM 추론을 하지 않습니다. `summary`는 기존 `context` 호출을 확인하고, `tpa`는 `interim`과 `final`을 모두 실행합니다.
-
-### 세 Agent 결과 한 번에 보기
-
-```bash
+# 각 Agent 예제를 이어서 확인 (임상 workflow 실행은 아님)
 python -m examples.run all
-python -m examples.run_integrated
-```
 
-- `examples.run all`: Screening, Summary `context`, tPA `interim/final` 결과를 출력합니다.
-- `examples.run_integrated`: Screening, Summary S1, tPA `interim/final`의 합성 결과를 한 JSON에 모아 출력합니다. 실제 LLM 추론이나 Agent 간 순차 전달은 하지 않습니다.
-
-### 테스트
-
-```bash
+# 전체 테스트
 python -m unittest discover -s tests -v
 ```
 
-테스트는 각 Agent의 입력 검증, 규칙, 결과 형식을 확인합니다. 현재 전체 테스트는 107개입니다.
+합성 예제는 입력과 출력 연결을 확인합니다. 실제 임상 기록에 대한 성능을 뜻하지 않습니다.
 
-## 실제 LLM을 사용한 GPU 실행
+## 로컬 LLM 실행 예제
 
-아래 Summary 명령은 로컬 모델 가중치가 준비된 환경에서 실행합니다. 모델 경로는 실제 저장 위치로 바꿉니다.
-
-```bash
-python -m examples.summary_s1 --model qwen35_9b --gpu 2 --model-dir /path/to/models/Qwen3.5-9B
-python -m examples.summary_s1 --model gemma4_12b_it --gpu 3 --model-dir /path/to/models/gemma-4-12B-it
-```
-
-Screening의 Mock v0.12 입력과 실제 Qwen 모델을 함께 실행하려면 다음 명령을 사용합니다.
+모델을 내려받고 의존성을 설치한 뒤, 로컬 가중치 디렉터리를 지정합니다. 외부 추론 API를 호출하지 않습니다.
 
 ```bash
-python scripts/screening_v012_demo.py --mode gpu --model qwen35_9b --gpu 2 --model-root /path/to/models --max-new-tokens 1800
+# Summary
+python -m examples.summary --model qwen35_9b --gpu 2 --model-dir /path/to/Qwen3.5-9B
+python -m examples.summary --model gemma4_12b_it --gpu 3 --model-dir /path/to/gemma-4-12B-it
+
+# Screening
+python scripts/screening_model_demo.py --model qwen35_9b --gpu 2 --model-root /path/to/models
 ```
 
-`tPA`는 구조화된 입력에 규칙을 적용하므로 GPU나 LLM을 사용하지 않습니다. 실행 준비와 모델별 옵션은 각 Agent 안내에 있습니다.
+필요한 패키지는 [Summary 실행 안내](chain_agents/summary/README.md)와 [Screening 안내](chain_agents/screening/README.md)에 있습니다. tPA는 별도 모델 없이 실행됩니다.
 
-## Orchestrator와 연결할 위치
+## Summary 요청과 반환 예시
 
-Agent 호출은 이 저장소의 Python 함수에서 시작합니다.
+요청 본문은 환자·내원 식별자, 읽을 자료, 필요한 질문만 담습니다.
 
-| Agent | 진입점 | 실행에 전달할 기능 |
-|---|---|---|
-| Screening | `chain_agents.screening.agent.invoke` | `services.backend`; Mock v0.12 모델 경로는 `invoke_v012` |
-| Summary | `chain_agents.summary.agent.invoke` | S1은 `data_api`와 `extractor`; 기존 `context`는 snapshot |
-| tPA | `chain_agents.tpa.agent.invoke` | request와 snapshot facts; 별도 서비스 호출 없음 |
+```json
+{
+  "patient_id": "PAT-example",
+  "encounter_id": "ENC-example",
+  "episode_id": "EP-example",
+  "input_references": ["document:NOTE-example@1"],
+  "questions": ["anticoagulant_use", "previous_stroke"]
+}
+```
 
-Summary S1의 `data_api.get(path)`는 요청한 자료를 읽고, `extractor.extract(documents, questions)`는 문서에서 질문별 사실과 인용을 찾습니다. 입력 변환과 서비스 준비는 Orchestrator를 실행하는 Host 쪽에서 합니다.
+Agent는 각 질문에 대해 `documented`, `not_stated`, `explicitly_unknown`, `conflicting`, `not_applicable` 상태 중 하나와 타입에 맞는 값을 반환합니다. 원문 근거는 `evidence`에 보존합니다.
 
-## v0.3과 Mock v0.12
+## Orchestrator와 Host가 맡는 부분
 
-두 숫자는 서로 다른 참고 자료에 붙은 버전 표기입니다. 이 저장소 전체나 모델의 버전은 아닙니다.
+Python 함수가 Agent의 현재 연결점입니다. 이를 REST API로 노출하는 서버와 병원별 EMR/OCS 연결은 Host가 맡습니다.
 
-- **v0.3**은 별도 [Orchestrator 저장소](https://github.com/donggunseo/chain-orchestrator-v03)의 Agent 호출 예제 형식입니다.
-- **Mock v0.12**는 공유받은 CHAIN Mock PDF와 코드 묶음의 버전입니다. 예시 업무 흐름과 자료 형식을 설명합니다.
+| Host 작업 | 이유 |
+|---|---|
+| 등록 정보 또는 API 경로로 Agent 선택 | Agent 식별은 실행 라우팅이며 임상 입력이 아님 |
+| Summary가 쓸 자료 조회 기능과 내부 모델 실행 환경 제공 | 병원별 데이터 권한과 모델 배포는 Agent 규칙과 별개 |
+| Agent 결과 저장 및 화면 조회 지원 | 저장된 Summary를 다시 표시할 때 모델을 재호출하지 않음 |
+| 실행 성공·실패와 재시도 관리 | 기술 실행 상태와 임상 결과 상태를 구분 |
 
-그래서 저장소에는 서로 다른 두 호출 예제가 있습니다. Screening은 두 자료 형식을 모두 보여주고, Summary의 `context`는 Orchestrator starter 방식, Summary의 S1은 질문별 자료 조회 방식입니다. 두 Summary 경로는 서로 다른 입력을 받으며 연속된 두 단계가 아닙니다.
+연동 시 필요한 최소 입력·결과와 책임 경계는 [Orchestrator 연동 안내](docs/INTEGRATION.md)에, 공통 및 Agent별 필드는 [입출력 설명](docs/CONTRACT.md)에 정리했습니다.
 
-## Agent별 안내
+## 폴더 안내
 
-- [Screening 역할, Mock 입력, 실행 방법](chain_agents/screening/README.md)
-- [Summary의 S1 실행, LLM, 입력과 결과](chain_agents/summary/README.md)
-- [tPA 규칙, 입력 사실, 출력 형식](chain_agents/tpa/README.md)
-- [Orchestrator 호출 및 서비스 연결](docs/INTEGRATION.md)
-- [각 Agent의 입력과 반환 예시](docs/CONTRACT.md)
+```text
+chain_agents/screening/   선별 근거 추출과 규칙
+chain_agents/summary/     질문별 임상정보와 근거 정리
+chain_agents/tpa/         구조화 정보 검토 규칙과 계산
+examples/                 합성 입력과 실행 예제
+tests/                    계약과 규칙 확인
+docs/                     연동·입출력·정리 기록
+```

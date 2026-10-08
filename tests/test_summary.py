@@ -1,25 +1,31 @@
+import json
 import unittest
+from pathlib import Path
 from chain_agents.summary.agent import invoke
-from examples.support import sample,services
-from chain_agents.common import canonical_hash
+from chain_agents.summary.data_contract import FixtureDataAPI
+from chain_agents.services import AgentServices
+from examples.summary import FixtureExtractor
 
 class SummaryTests(unittest.TestCase):
-    def test_preserves_facts_and_provenance(self):
-        r,s=sample();out=invoke(r,s,services())
-        self.assertEqual(out['structured_context'],s['facts'])
-        out['structured_context']['age']['source_ref']['version']=9
-        self.assertEqual(s['facts']['age']['source_ref']['version'],1)
-    def test_cache_reuse_and_changed_snapshot(self):
-        r,s=sample();svc=services()
-        self.assertFalse(invoke(r,s,svc)['cache']['hit']);r['request_id']='second'
-        self.assertTrue(invoke(r,s,svc)['cache']['hit'])
-        s['facts']['age']['value']=69;s['snapshot_id']=canonical_hash({k:v for k,v in s.items() if k!='snapshot_id'});r['input_snapshot_id']=s['snapshot_id']
-        self.assertFalse(invoke(r,s,svc)['cache']['hit'])
-    def test_false_zero_and_null_are_different(self):
-        for value,expected in [(False,[]),(0,[]),(None,['age'])]:
-            r,s=sample();s['facts']['age']['value']=value
-            self.assertEqual(invoke(r,s,services())['missing_information'],expected)
-    def test_conflict_error_and_retracted_are_missing(self):
-        for status in ['CONFLICT','ERROR','RETRACTED','INVALIDATED']:
-            r,s=sample();s['facts']['age']['status']=status
-            self.assertEqual(invoke(r,s,services())['missing_information'],['age'])
+    def setUp(self):
+        self.fixture = json.loads((Path(__file__).resolve().parents[1] / 'examples/summary_fixture.json').read_text(encoding='utf-8'))
+        self.services = AgentServices(data_api=FixtureDataAPI(self.fixture['api_responses']),
+                                      extractor=FixtureExtractor(self.fixture['synthetic_extraction']))
+
+    def test_one_call_builds_question_items(self):
+        result = invoke(self.fixture['request'], None, self.services)
+        self.assertEqual(result['schema_version'], 'summary-items/v1')
+        self.assertEqual(len(result['items']), 6)
+        self.assertNotIn('agent', result)
+        self.assertNotIn('action', result)
+
+    def test_agent_route_does_not_require_agent_or_action_fields(self):
+        request = self.fixture['request']
+        self.assertNotIn('agent', request)
+        self.assertNotIn('action', request)
+        self.assertEqual(len(invoke(request, None, self.services)['items']), 6)
+
+    def test_non_summary_mode_is_rejected(self):
+        request = dict(self.fixture['request'], mode='unsupported')
+        with self.assertRaises(ValueError):
+            invoke(request, None, self.services)
