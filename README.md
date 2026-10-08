@@ -1,5 +1,12 @@
 # CHAIN Agent Starter
 
+## Summary S1 HTTP 통합 (feature/summary)
+
+JLK/UI 연결은 [Summary README](chain_agents/summary/README.md)와 [API 통합 가이드](chain_agents/summary/API_INTEGRATION.md)를 보세요.
+POST invoke, 비동기 실행 조회, 결과 저장/조회, Data API client 및 GPU 없는 합성 demo를 제공합니다.
+[실제 모델 API 테스트 기록](chain_agents/summary/API_TEST_RESULTS.md)도 포함합니다. 아래 기존 v0.3 snapshot 계약과 참조형 S1 계약은 구분합니다.
+
+
 ## 1. 바로 실행
 
 Python 3.11 이상. 기본 예제와 단위 테스트는 추가 설치 없이 동작합니다.

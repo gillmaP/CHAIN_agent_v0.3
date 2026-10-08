@@ -8,6 +8,9 @@ from ..common import canonical_hash, missing_fields
 
 
 def run(request, snapshot, services):
+    if 'input_references' in request:
+        from .history_s1_summary import run_history
+        return run_history(request, snapshot, services)
     key = canonical_hash({'snapshot': snapshot['snapshot_id'], 'scope': sorted(request['scope']),
                           'agent_id': request['agent_id'], 'version': request['agent_version'],
                           'manifest': request['manifest_hash'], 'mode': request['mode']})

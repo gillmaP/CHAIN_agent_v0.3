@@ -4,5 +4,6 @@ from .logic import run
 
 
 def invoke(request, snapshot, services):
-    inputs(request, snapshot, {'context'})
+    if 'input_references' not in request:
+        inputs(request, snapshot, {'context'})
     return run(request, snapshot, services)
