@@ -20,9 +20,9 @@ python -m unittest discover -s tests -v
 |---|---|---|---|
 | 1: Stroke Screening | `chain_agents/screening/logic.py` | `tests/test_screening.py` | 합성 fixture 응답. backend가 없으면 명시적 실패 |
 | 2: Clinical Summary | `chain_agents/summary/logic.py` | `tests/test_summary.py` | 요청 Fact 보존 + 누락 목록 + 캐시 |
-| 3: tPA Decision Support | `chain_agents/tpa/logic.py` | `tests/test_tpa.py` | 요청 Fact를 evidence_package로 반환 |
+| 3: tPA Decision Support | `chain_agents/tpa/logic.py` | `tests/test_tpa.py` | scoped Fact 기반 12개 검토 항목 + 용량 미리보기. [실행·통합 안내](chain_agents/tpa/README.md) |
 
-`agent.py`는 공통 호출 규격을 유지하는 진입점입니다. 각 폴더에 `extractor.py`, `rules.py`, `prompts/` 등을 필요할 때 추가하세요. 아직 LLM, 임상 판정 규칙, 용량 계산은 없습니다.
+`agent.py`는 공통 호출 규격을 유지하는 진입점입니다. 각 폴더에 `extractor.py`, `rules.py`, `prompts/` 등을 필요할 때 추가하세요. 이 tPA 브랜치는 규칙 기반 평가와 용량 계산을 구현했고 LLM은 사용하지 않습니다. 다른 Agent는 위 표의 baseline을 기준으로 별도 팀 브랜치에서 개발합니다.
 
 | 공통 파일 | 역할 |
 |---|---|
@@ -99,3 +99,18 @@ python scripts/prepare_integration.py \
 ## 7. GitHub 협업
 
 이 폴더 자체가 공유 저장소의 루트가 되도록 올리면 됩니다. GitHub Actions와 팀별 테스트가 포함되어 있습니다. 원천 병원 자료·실제 환자 정보·API 키는 커밋하지 마세요. 저장소 소유자/팀 GitHub 계정이 정해지면 팀별 CODEOWNERS를 추가하면 됩니다.
+
+## 8. JLK 통합·UI 연결 안내: tPA 모듈
+
+JLK의 팀별 결과물 통합에 필요한 tPA 실행 방법, 입출력 형식, Orchestrator 및 Tool/API 연결 위치는 [tPA README](chain_agents/tpa/README.md)에 정리했습니다.
+
+| 통합 항목 | tPA 구현·연결 위치 |
+|---|---|
+| 실행·호출 | `python -m chain_agents.tpa.demo final`; `chain_agents.tpa.agent:invoke` |
+| 입력·출력 | `invoke(request, snapshot, services) -> dict`; [입력 필드·실행 예제](chain_agents/tpa/README.md#입력-형식), [출력·ui-표시](chain_agents/tpa/README.md#출력-형식과-ui-연결) |
+| Orchestrator 등록 | upstream Catalog/Workflow/Registry/Policy; [등록과 호출 경로](chain_agents/tpa/README.md#orchestrator-등록과-호출-위치) |
+| 병원 Tool/API | upstream 출처 Adapter → Store → scoped Snapshot; [현재 연결과 확장 위치](chain_agents/tpa/README.md#toolapi-연동-위치) |
+| UI 결과·의료진 확인 | Runtime 결과의 `result.assessment`; Query의 `latest_results` 및 HITL의 고정 근거 |
+| 합의할 변경 | `assessment`: 문자열 → 객체 제안. [ASSESSMENT.md](chain_agents/tpa/ASSESSMENT.md); 소비자·버전·파일 hash 공동 검토 필요 |
+
+현재 tPA는 동기 Python plugin입니다. 독립 HTTP endpoint는 제공하지 않으며, 백엔드·UI는 Orchestrator의 결과 조회와 HITL 계약으로 연결합니다. 등록·설치 검증과 UI 연동 확인 후 통합하는 구조입니다.
