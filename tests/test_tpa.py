@@ -334,6 +334,7 @@ class TpaTests(unittest.TestCase):
 
     def test_no_service_side_effects(self):
         class ForbiddenServices:
+            ivt_protocol = None
             def __getattr__(self, name):
                 raise AssertionError('Unexpected service access: ' + name)
         invoke(self.request, self.snapshot, ForbiddenServices())

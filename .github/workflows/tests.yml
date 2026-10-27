@@ -13,3 +13,33 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python -m unittest discover -s tests -v
       - run: python -m examples.run all
+  tpa-reference-host:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check out the pinned public reference Host
+        run: |
+          git -c core.autocrlf=false clone https://github.com/donggunseo/chain-orchestrator-v03.git ../reference-host
+          git -C ../reference-host checkout fdb382a325d52f89a46b77d50a825a08fe3ff841
+          python -m pip install -r ../reference-host/requirements.txt
+      - name: Prepare opt-in synthetic integration
+        run: |
+          python scripts/prepare_tpa_review.py --upstream ../reference-host --output ../tpa-reference --synthetic-demo
+          cp tests/test_tpa_host.py ../tpa-reference/tpa_host_tests.py
+      - name: Check Host behavior and workflow imports
+        working-directory: ../tpa-reference
+        run: |
+          python -m unittest tpa_host_tests -v
+          python -m compileall -q chain_agents/tpa chain_demo/temporal_workflow.py demo/local_runtime.py
+          python -c "import faulthandler,runpy; faulthandler.dump_traceback_later(60,repeat=True); runpy.run_module('demo',run_name='__main__')" --backend local --test-mode --hitl recorded --recorded demo/scenarios/recorded_hitl.json --run-timeout 180 --output-dir output/tpa-review
+      - name: Verify evidence-first demo semantics
+        run: python scripts/verify_tpa_review_demo.py ../tpa-reference/output/tpa-review
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: synthetic-reference-diagnostics
+          path: ../tpa-reference/output/tpa-review
+          retention-days: 3
