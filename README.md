@@ -29,7 +29,7 @@ invoke(request, snapshot, services) -> dict
 |---|---|---|---|---|
 | Screening | 요청 ID, 자료 범위, 평가 시각 | 범위에 포함된 원문 문서와 구조화 정보 | 합성 또는 로컬 LLM backend | 선별 결과와 근거 목록 |
 | Summary | 환자·내원·에피소드 ID, 자료 참조, 질문 | 선택 사항. 원문과 구조화 자료는 주로 자료 참조로 조회 | 자료 조회기, 문서 추출기, 선택적 입력 감사기 | 질문별 상태·값·근거와 누락 정보 |
-| tPA | 평가 단계, 범위, 평가 시각 | 범위에 포함된 구조화 임상 정보 | 현재 사용하지 않음 | 규칙별 평가, 누락 정보, 의료진 확인 항목 |
+| tPA | 평가 단계, 범위, 평가 시각 | 범위에 포함된 구조화 임상 정보 | 선택적 ivt_protocol 설정 | 규칙별 평가, 누락 정보, 의료진 확인 항목 |
 
 Agent 선택은 Orchestrator의 등록 정보 또는 라우팅 단계에서 처리합니다. 임상 요청 본문에 `agent`를 반복해서 넣지 않습니다. Summary는 한 번의 호출에서 요청된 질문을 모두 처리하므로 별도의 `action`을 요구하지 않습니다. tPA의 `mode`는 `interim`과 `final` 평가 단계를 구분하므로 입력에 포함합니다.
 
@@ -256,101 +256,17 @@ LLM의 내부 반환 구조는 `facts`와 `reviewed_documents`입니다. 코드�
 
 ## 4. tPA Decision Support Agent
 
-### 목적과 처리
+구조화 임상 Fact를 결정론적 규칙으로 검토하고 누락·의료진 확인 항목과 체중 기반 용량 참고값을 반환합니다. Python 진입점 `invoke(request, snapshot, services)`와 최상위 출력 `mode`, `evidence_package`, `assessment`, `mock_only`를 유지합니다. `evidence_package`는 전달받은 Fact의 독립 복사본이며 외부 Tool 호출 결과가 아닙니다.
 
-전달받은 구조화 임상 정보를 읽기 전용으로 사용하고, 결정론적 프로토타입 규칙 12개를 적용해 평가 항목과 의료진 확인이 필요한 내용을 반환합니다. LLM이나 자료 조회 API를 호출하지 않습니다.
+`assessment.schema=chain-tpa-assessment/prototype-v2`에서 자료 확보 상태와 임상 검토 상태를 분리합니다. LKW 남은 시간, 불확실한 시간, 출처가 구분된 체중, 선택적 aPTT·POCT/검사실 혈당·A04/의료진 판독을 지원합니다. `services.ivt_protocol`로 배포 설정을 주입할 수 있으며 기본값은 연구용입니다. `mock_only=true`를 유지하고 자동 처방·투약은 하지 않습니다.
 
-### 입력
+CT 완료 후 원천 자료로 HITL-2를 여는 opt-in reference Host adapter도 제공합니다. Agent 성공·검사 완비를 gate로 삼지 않으며 role·필수 확인·판단 근거 고정을 유지합니다. shared HITL 계약과 JLK UI 변경은 통합 검토가 필요합니다.
 
-- `request`: `request_id`, `mode` (`interim` 또는 `final`), `input_snapshot_id`, `scope`, `dependencies`, `evaluated_at`
-- `snapshot`: `snapshot_id`, `known_at`, `facts`
-- 각 Fact는 최소한 `value`, `status`, `source_ref`, `source_time`, `known_at`를 포함하고, 수치 값은 필요에 따라 `unit`을 포함합니다.
-- `scope`와 Snapshot의 Fact 이름은 일치해야 합니다.
-
-주요 Fact 이름은 `lkw`, `ncct_completed`, `ncct_order_id`, `ct_order_id`, `platelet_count`, `inr`, `anticoagulant`, `weight_kg`, `sbp`, `dbp`, `glucose`, `recent_surgery_or_bleeding`, `previous_stroke`, `nihss`, `antiplatelet`, `age`입니다. 필수 Fact가 없거나 `PENDING`이면 추정하지 않고 미확보 상태로 남깁니다.
-
-### 입력 예시
-
-아래는 시간 정보와 검사 대기 상태만 전달한 `interim` 요청 예시입니다. 미제공 Fact들은 평가 결과에서 범위 밖 또는 미확보 항목으로 표시됩니다.
-
-```json
-{
-  "request": {
-    "request_id": "TPA-001",
-    "mode": "interim",
-    "input_snapshot_id": "snapshot-tpa-001",
-    "scope": ["lkw", "ncct_completed"],
-    "dependencies": [
-      {"system": "SYNTHETIC", "record_id": "LKW-01", "version": 1, "field": "value"},
-      {"system": "SYNTHETIC", "record_id": "CT-01", "version": 1, "field": "value"}
-    ],
-    "evaluated_at": "2026-10-08T15:00:00+09:00"
-  },
-  "snapshot": {
-    "snapshot_id": "snapshot-tpa-001",
-    "known_at": "2026-10-08T14:59:00+09:00",
-    "facts": {
-      "lkw": {
-        "value": "2026-10-08T13:35:00+09:00",
-        "status": "AVAILABLE",
-        "source_ref": {"system": "SYNTHETIC", "record_id": "LKW-01", "version": 1, "field": "value"},
-        "source_time": "2026-10-08T14:50:00+09:00",
-        "known_at": "2026-10-08T14:59:00+09:00"
-      },
-      "ncct_completed": {
-        "value": null,
-        "status": "PENDING",
-        "source_ref": {"system": "SYNTHETIC", "record_id": "CT-01", "version": 1, "field": "value"},
-        "source_time": "2026-10-08T14:59:00+09:00",
-        "known_at": "2026-10-08T14:59:00+09:00"
-      }
-    }
-  }
-}
-```
-
-### 반환 결과
-
-최상위 반환 필드는 `mode`, `evidence_package`, `assessment`, `mock_only`입니다. `assessment`에는 다음 정보가 포함됩니다.
-
-| 필드 | 내용 |
-|---|---|
-| `schema`, `rule_set` | 결과 스키마와 적용 규칙 버전 |
-| `status` | `BLOCKING_FINDING_IDENTIFIED`, `INCOMPLETE_PENDING_DATA`, `PHYSICIAN_REVIEW_REQUIRED` 중 하나 |
-| `checks` | 12개 평가 항목. 각 항목은 ID, 설명, 결과, 값, 세부 정보, 환자 Fact 근거, 문헌 출처 ID를 포함 |
-| `missing_information` | 필수 정보 중 누락·대기·범위 밖인 Fact |
-| `scope_gaps` | 요청 범위에서 빠진 평가 항목 |
-| `items_requiring_physician_confirmation` | 의료진 확인이 필요한 항목 ID |
-| `dose_preview` | 참고용 산술 미리보기. 자동 처방·투약은 수행하지 않음 |
-| `limitations` | 프로토타입의 한계 및 유의 사항 |
-| `recommendation_type`, `physician_decision_required` | 의사결정지원 전용이며 의료진 판단이 필요함을 표시 |
-
-개별 check 결과는 `PASS`, `FAIL`, `INFO`, `PENDING`, `CONFLICT`, `NOT_IN_SCOPE`, `PASS_UNCONFIRMED`, `PASS_WITH_FLAG`, `REQUIRES_PHYSICIAN_READ`, `REQUIRES_PHYSICIAN_REVIEW` 중 하나입니다. 예를 들어 `ncct_completed=true`는 검사 완료만 나타내며 출혈이 없다는 판독으로 간주하지 않습니다. 정상 범위의 수치도 치료 적합 판정으로 바꾸지 않습니다.
-
-실제 응답의 check 한 건은 아래 구조를 사용합니다. `assessment.checks`에는 같은 형식의 항목 12개가 반환됩니다.
-
-```json
-{
-  "check_id": "C01_TIME_WINDOW",
-  "label": "LKW standard 4.5-hour window",
-  "result": "PASS",
-  "value": {
-    "elapsed_seconds": 5100.0,
-    "deadline": "2026-10-08T18:05:00+09:00"
-  },
-  "detail": "Unknown-onset/extended-window imaging selection requires specialist review.",
-  "evidence": [
-    {
-      "field": "lkw",
-      "status": "AVAILABLE",
-      "source_ref": {"system": "SYNTHETIC", "record_id": "LKW-01", "version": 1, "field": "value"},
-      "source_time": "2026-10-08T14:50:00+09:00",
-      "known_at": "2026-10-08T14:59:00+09:00"
-    }
-  ],
-  "source_ids": ["AHA2026"]
-}
-```
+- [실행·입력·출력·코드 구조](chain_agents/tpa/README.md)
+- [assessment v2와 화면 상태](chain_agents/tpa/ASSESSMENT.md)
+- [Host 연결 명령·변경 대응표·남은 운영 사항](chain_agents/tpa/INTEGRATION.md)
+- 실행 가능한 입력: `chain_agents.tpa.demo.sample()`
+- 전체 JSON 출력: `python -m chain_agents.tpa.demo final`
 
 ## 5. Orchestrator 및 Tool/API 연동
 

@@ -2,16 +2,17 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from .facts import number
+from .policy import POLICY
 
 
-def calculate(weight_kg) -> list[dict]:
+def calculate(weight_kg, policy=POLICY) -> list[dict]:
     number(weight_kg, 'weight_kg')
     if weight_kg <= 0:
         raise ValueError('Positive measured weight is required')
     weight = Decimal(str(weight_kg))
-    alteplase = min(weight * Decimal('0.9'), Decimal('90'))
-    bolus = alteplase * Decimal('0.1')
-    tenecteplase = min(weight * Decimal('0.25'), Decimal('25'))
+    alteplase = min(weight * Decimal(str(policy.alteplase_mg_per_kg)), Decimal(str(policy.alteplase_max_mg)))
+    bolus = alteplase * Decimal(str(policy.alteplase_bolus_fraction))
+    tenecteplase = min(weight * Decimal(str(policy.tenecteplase_mg_per_kg)), Decimal(str(policy.tenecteplase_max_mg)))
 
     def display(value):
         return float(value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP))
@@ -28,7 +29,7 @@ def calculate(weight_kg) -> list[dict]:
     ]
 
 
-def preview(facts) -> dict:
+def preview(facts, policy=POLICY) -> dict:
     weight = None
     reason = 'WEIGHT_NOT_AVAILABLE'
     if facts.available('weight_kg'):
@@ -38,7 +39,11 @@ def preview(facts) -> dict:
         # The field contract itself is kg; a conflicting explicit unit is rejected.
         if facts.unit('weight_kg') not in (None, 'kg'):
             raise ValueError('weight_kg must use kg')
-        reason = 'MEASURED_WEIGHT_ARITHMETIC_ONLY'
-    return {'weight_kg': weight, 'options': calculate(weight) if weight is not None else [],
+        reason = 'WEIGHT_ARITHMETIC_ONLY'
+    method = facts.value('weight_method') if facts.available('weight_method') else 'UNKNOWN'
+    if method not in {'MEASURED','PATIENT_REPORTED','CAREGIVER_REPORTED','ESTIMATED','UNKNOWN'}:
+        raise ValueError('Unknown weight method')
+    return {'weight_kg': weight, 'weight_method':method, 'options': calculate(weight, policy) if weight is not None else [],
             'basis': reason, 'evidence': facts.evidence(('weight_kg',)),
+            'protocol':policy.identity(), 'calculator_version':'decimal-dose/0.2.0',
             'physician_confirmation_required': True, 'auto_order': False, 'auto_administration': False}

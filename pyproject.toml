@@ -11,3 +11,6 @@ dependencies = []
 
 [tool.setuptools.packages.find]
 include = ["chain_agents*"]
+
+[tool.setuptools.package-data]
+"chain_agents.tpa" = ["*.html"]
