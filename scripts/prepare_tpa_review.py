@@ -62,6 +62,16 @@ def prepare(upstream, output, *, synthetic_demo=False):
             '                    elif kind=="review_refresh":commands=self.engine.refresh_tpa_review(value,self.clock.now())\n                    elif kind=="context":')
     # Portability fix in this disposable reference copy; no clinical rule changes.
     replace(output/'chain_demo/agents/fixture_backend.py','str(resolved.relative_to(self.root))','resolved.relative_to(self.root).as_posix()')
+    if synthetic_demo:
+        # Full Snapshot polling at 200 Hz competes with Worker threads on small CI
+        # runners. Only the synthetic observer cadence changes, never virtual time.
+        demo_run = output/'demo/run.py'
+        content = demo_run.read_text(encoding='utf-8')
+        if content.count('.005') != 3:
+            raise ValueError('Pinned synthetic polling anchors changed')
+        demo_run.write_text(content.replace('.005','.05'),encoding='utf-8',newline='\n')
+        replace(output/'demo/support/test_driver.py','poll_interval=.005','poll_interval=.05')
+        replace(output/'demo/support/recorded_hitl.py','poll_interval=.01','poll_interval=.05')
     config = output/'config'
     read = lambda name: yaml.safe_load((config/name).read_text(encoding='utf-8'))
     catalog, registry, policy, workflow = [read(n) for n in ('agents_v03.yaml','plugins.yaml','policy_v03.yaml','workflow_v03.yaml')]

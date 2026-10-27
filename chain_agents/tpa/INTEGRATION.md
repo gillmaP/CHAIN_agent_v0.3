@@ -39,6 +39,8 @@ python /path/to/CHAIN_agent_v0.3/scripts/verify_tpa_review_demo.py output/tpa-re
 
 GitHub Actions도 동일 흐름을 실행합니다. reference의 기존 기대값에는 “final 성공 후 HITL-2”가 있어 새 semantic verifier를 사용합니다. 공개 reference에는 직접 push하지 않습니다.
 
+합성 데모 옵션은 전체 Snapshot 관찰 polling을 5ms에서 50ms로 조정해 작은 CI runner의 Worker 경합을 줄입니다. 임상 시각·소스 발생 시점·Agent timeout·판정 규칙은 바꾸지 않습니다. CI 실패 시 합성 결과와 thread traceback을 진단용으로 남깁니다.
+
 ## 공유 계약 변경
 
 기존 HITL request에 선택 필드 `evidence_mode: SOURCE_SNAPSHOT`을 제안합니다. 이 모드에서만 `result_ids=[]`, `results=[]`를 허용하며 HITL-2·CT 완료·CT 오더 일치를 검증합니다. 원천 Snapshot, dependencies, 허용 role, options, 필수 confirmation을 유지합니다. 다른 checkpoint에는 예외를 적용하지 않습니다.

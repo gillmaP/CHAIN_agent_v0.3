@@ -34,6 +34,12 @@ jobs:
         run: |
           python -m unittest tpa_host_tests -v
           python -m compileall -q chain_agents/tpa chain_demo/temporal_workflow.py demo/local_runtime.py
-          python -m demo --backend local --test-mode --hitl recorded --recorded demo/scenarios/recorded_hitl.json --run-timeout 180 --output-dir output/tpa-review
+          python -c "import faulthandler,runpy; faulthandler.dump_traceback_later(60,repeat=True); runpy.run_module('demo',run_name='__main__')" --backend local --test-mode --hitl recorded --recorded demo/scenarios/recorded_hitl.json --run-timeout 180 --output-dir output/tpa-review
       - name: Verify evidence-first demo semantics
         run: python scripts/verify_tpa_review_demo.py ../tpa-reference/output/tpa-review
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: synthetic-reference-diagnostics
+          path: ../tpa-reference/output/tpa-review
+          retention-days: 3

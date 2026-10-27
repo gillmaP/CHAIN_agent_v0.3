@@ -9,6 +9,7 @@ if HOST_AVAILABLE:
     from chain_demo.orchestration_config import load_orchestration_bundle
     from chain_demo.data_io import load_initial
     from chain_demo.contracts import validate_hitl_request
+    from chain_demo.agents.runtime import AgentRuntime
     from chain_agents.tpa.orchestrator import EvidenceFirstEngine, CHECKPOINT
     from chain_agents.tpa.demo import sample
     from chain_agents.tpa.agent import invoke
@@ -40,6 +41,14 @@ class HostTests(unittest.TestCase):
         self.assertEqual(review['request']['evidence_mode'],'SOURCE_SNAPSHOT')
         self.assertEqual(review['snapshot']['facts']['inr']['status'],'PENDING')
         validate_hitl_request(review['request'],review['snapshot'],review['results'])
+
+    def test_registered_runtime_returns_v2_domain_result(self):
+        engine = self.engine(missing=True)
+        command = next(c for c in engine.pending.values() if c.get('alias')=='tpa_decision_support')
+        reply = AgentRuntime(load_orchestration_bundle()['agents']).invoke(command['job'])
+        self.assertEqual(reply['status'],'SUCCESS')
+        self.assertEqual(reply['result']['assessment']['schema'],'chain-tpa-assessment/prototype-v2')
+        self.assertEqual(reply['result']['evidence_package']['inr']['status'],'PENDING')
 
     def test_wrong_ct_order_cannot_open(self):
         self.assertNotIn(CHECKPOINT,self.engine(mismatch=True).open_hitl)
